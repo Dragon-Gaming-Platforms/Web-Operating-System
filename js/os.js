@@ -11,12 +11,18 @@ document.addEventListener('click', hideContextMenu);
 async function initOS() {
     await VFS.init();
     
-    try {
-        const res = await fetch('apps.json');
-        appRegistry = await res.json();
-    } catch(e) {
-        console.error("Missing apps.json.");
-        appRegistry = [];
+    // Check if we have dynamically fetched apps saved, otherwise fallback to apps.json
+    const savedRegistry = localStorage.getItem('dynamicAppRegistry');
+    if (savedRegistry) {
+        appRegistry = JSON.parse(savedRegistry);
+    } else {
+        try {
+            const res = await fetch('apps.json');
+            appRegistry = await res.json();
+        } catch(e) {
+            console.error("Missing apps.json fallback.");
+            appRegistry = [];
+        }
     }
 
     renderDesktop();
@@ -39,22 +45,124 @@ async function initOS() {
 }
 
 // ==========================================
+// DYNAMIC GITHUB APP SCANNER
+// ==========================================
+async function updateAppList() {
+    const btn = document.getElementById('update-store-btn');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = `⏳ Scanning...`;
+    btn.style.opacity = '0.5';
+    btn.style.pointerEvents = 'none';
+
+    // Auto-detect GitHub username and repository from the URL
+    let user = '', repo = '';
+    const host = window.location.hostname;
+    
+    if (host.includes('github.io')) {
+        user = host.split('.')[0];
+        const pathParts = window.location.pathname.split('/').filter(p => p.length > 0);
+        repo = pathParts.length > 0 ? pathParts[0] : host; 
+    } else {
+        // If testing locally or on a custom domain, ask the user
+        let repoInfo = prompt("Cannot auto-detect GitHub repository.\nPlease enter it as 'username/repo':", localStorage.getItem('gh_repo_cache') || "");
+        if (!repoInfo || !repoInfo.includes('/')) {
+            resetBtn();
+            return;
+        }
+        [user, repo] = repoInfo.split('/');
+        localStorage.setItem('gh_repo_cache', repoInfo);
+    }
+
+    try {
+        let newRegistry = [];
+        
+        // 1. Fetch preinstalled apps folder
+        const preRes = await fetch(`https://api.github.com/repos/${user}/${repo}/contents/apps/preinstalled`);
+        if (preRes.ok) {
+            const files = await preRes.json();
+            for(let file of files) {
+                if(file.name.endsWith('.html')) {
+                    let baseName = file.name.replace('.html', '');
+                    // Format name: "file-explorer" -> "File Explorer"
+                    let title = baseName.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                    newRegistry.push({
+                        id: baseName,
+                        name: title,
+                        path: file.path,
+                        category: "System",
+                        preinstalled: true,
+                        icon: title === "File Explorer" ? "📂" : null // Force icon for file explorer
+                    });
+                }
+            }
+        }
+
+        // 2. Fetch store apps folder
+        const storeRes = await fetch(`https://api.github.com/repos/${user}/${repo}/contents/apps/store`);
+        if (storeRes.ok) {
+            const files = await storeRes.json();
+            for(let file of files) {
+                if(file.name.endsWith('.html')) {
+                    let baseName = file.name.replace('.html', '');
+                    let title = baseName.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                    
+                    // Smart Categorization based on keywords in title
+                    let category = "App Store";
+                    const lowerName = baseName.toLowerCase();
+                    if(lowerName.includes('edit') || lowerName.includes('calc')) category = "Productivity";
+                    if(lowerName.includes('game') || lowerName.includes('play')) category = "Entertainment";
+                    if(lowerName.includes('git') || lowerName.includes('dev') || lowerName.includes('import')) category = "Developer Tools";
+
+                    newRegistry.push({
+                        id: baseName,
+                        name: title,
+                        path: file.path,
+                        category: category,
+                        preinstalled: false
+                    });
+                }
+            }
+        }
+
+        if (newRegistry.length > 0) {
+            localStorage.setItem('dynamicAppRegistry', JSON.stringify(newRegistry));
+            appRegistry = newRegistry;
+            renderDesktop();
+            renderAppStore();
+            renderTaskbar();
+            btn.innerHTML = `✅ Found ${newRegistry.length} Apps!`;
+            setTimeout(() => resetBtn(), 3000);
+        } else {
+            alert("No HTML apps found. Make sure they are uploaded directly inside the /apps/store/ or /apps/preinstalled/ folders!");
+            resetBtn();
+        }
+
+    } catch(e) {
+        console.error(e);
+        alert("Failed to connect to GitHub. Your repository might be set to Private, or you hit the API limit.");
+        resetBtn();
+    }
+
+    function resetBtn() {
+        btn.innerHTML = originalText;
+        btn.style.opacity = '1';
+        btn.style.pointerEvents = 'auto';
+    }
+}
+
+// ==========================================
 // ICON GENERATOR (Supports emoji, png, jpg)
 // ==========================================
 function getAppIconHTML(app, isSmall = false) {
     const fallbackClass = isSmall ? 'icon-placeholder-small' : 'icon-placeholder';
     
-    // 1. If an explicit emoji or icon is listed in apps.json
     if (app.icon) {
-        // If it's a short string (emoji)
         if (app.icon.length <= 2) {
             return `<div class="${fallbackClass}" style="background: transparent; font-size: ${isSmall ? '18px' : '36px'}; box-shadow: none;">${app.icon}</div>`;
         } 
-        // If it's a direct URL
         return `<img src="${app.icon}" class="${fallbackClass}" style="background: transparent; box-shadow: none; object-fit: contain;">`;
     }
     
-    // 2. Auto-Detect PNG / JPG from the icons folder!
     const pathParts = app.path.split('/');
     const fileName = pathParts.pop(); 
     const folderPath = pathParts.join('/'); 
@@ -64,7 +172,6 @@ function getAppIconHTML(app, isSmall = false) {
     const jpgPath = `${folderPath}/icons/${baseName}.jpg`;
     const letter = app.name.charAt(0);
     
-    // This clever onerror hack tries .png, then .jpg, then falls back to the letter box without needing a backend server
     return `<img src="${pngPath}" class="${fallbackClass}" style="background: transparent; box-shadow: none; object-fit: contain;" 
         onerror="this.onerror=null; this.src='${jpgPath}'; this.onerror=function(){ 
             const d = document.createElement('div'); 
@@ -101,7 +208,6 @@ function renderTaskbar() {
         const btn = document.createElement('div');
         btn.className = `taskbar-icon ${isOpen ? 'is-open active-app' : ''} ${isActive ? 'is-active' : ''}`;
         
-        // Inject dynamic small icon
         btn.innerHTML = getAppIconHTML(app, true);
         
         btn.onclick = () => {
@@ -136,7 +242,6 @@ function renderDesktop() {
         if(app.preinstalled || installedApps.includes(app.id)) {
             const icon = document.createElement('div');
             icon.className = 'desktop-icon';
-            // Inject dynamic desktop icon
             icon.innerHTML = `${getAppIconHTML(app, false)}<span>${app.name}</span>`;
             icon.onclick = () => openWindow(app, app.path);
             icon.oncontextmenu = (e) => showContextMenu(e, 'app', app);
@@ -194,7 +299,6 @@ function renderAppStore() {
     });
 }
 
-// Accepts full App Object OR string title
 function openWindow(appOrTitle, url, contentHTML = null, fallbackAppId = null) {
     const title = typeof appOrTitle === 'string' ? appOrTitle : appOrTitle.name;
     const appId = typeof appOrTitle === 'string' ? fallbackAppId : appOrTitle.id;
@@ -288,7 +392,6 @@ function openFile(file) {
     }
 }
 
-// Context Menu
 let ctxTarget = null;
 function showContextMenu(e, type, data) {
     e.preventDefault();
