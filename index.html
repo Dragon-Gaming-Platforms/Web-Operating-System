@@ -7,10 +7,19 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+    <!-- 1. Boot Screen -->
+    <div id="boot-screen">
+        <svg viewBox="0 0 24 24" fill="#0078D4" width="80" height="80" style="margin-bottom: 30px;"><path d="M11.4 11.4H0V0h11.4v11.4zm12.6 0H12.6V0H24v11.4zM11.4 24H0V12.6h11.4V24zm12.6 0H12.6V12.6H24V24z"/></svg>
+        <div class="boot-spinner"></div>
+    </div>
+
     <!-- Desktop Area -->
     <div id="desktop"></div>
     
-    <!-- App Store / Launcher (Start Menu) -->
+    <!-- 2. Aero Snap Preview Glass -->
+    <div id="snap-preview" class="hidden"></div>
+    
+    <!-- App Store / Launcher -->
     <div id="start-menu" class="hidden">
         <div class="start-search">
             <input type="text" placeholder="Search for apps, settings, and documents" disabled>
@@ -29,11 +38,7 @@
         <div class="taskbar-weather">
             <span style="font-size: 16px;">☁️</span> 68°F
         </div>
-        
-        <div class="taskbar-icons" id="taskbar-icons">
-            <!-- Icons injected by JS -->
-        </div>
-
+        <div class="taskbar-icons" id="taskbar-icons"></div>
         <div class="taskbar-tray">
             <div class="tray-icon">🛜</div>
             <div class="tray-icon">🔊</div>
@@ -44,10 +49,22 @@
         </div>
     </div>
 
+    <!-- Personalize Dialog -->
+    <div id="personalize-dialog" class="hidden">
+        <h3>Change Wallpaper</h3>
+        <input type="text" id="wallpaper-input" placeholder="Paste Image URL here...">
+        <div style="display:flex; gap:10px; margin-top:15px; justify-content:flex-end;">
+            <button onclick="document.getElementById('personalize-dialog').classList.add('hidden')">Cancel</button>
+            <button class="primary" onclick="setWallpaper()">Apply</button>
+        </div>
+    </div>
+
     <!-- Right-Click Context Menu -->
     <div id="context-menu" class="hidden">
         <div class="context-item" id="ctx-open">Open</div>
-        <div class="context-item" id="ctx-delete">Delete</div>
+        <div class="context-item" id="ctx-download">Download to PC</div>
+        <div class="context-item" id="ctx-personalize">Personalize Desktop</div>
+        <div class="context-item" id="ctx-delete" style="color: #ff6b6b;">Delete</div>
     </div>
 
     <script src="js/vfs.js"></script>
