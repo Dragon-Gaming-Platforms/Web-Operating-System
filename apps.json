@@ -4,7 +4,8 @@
         "name": "File Explorer",
         "path": "apps/preinstalled/file-explorer.html",
         "category": "System",
-        "preinstalled": true
+        "preinstalled": true,
+        "icon": "📂"
     },
     {
         "id": "html-editor",
