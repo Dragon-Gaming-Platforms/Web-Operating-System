@@ -4,19 +4,23 @@
     <style>
         body { margin: 0; font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; background: #202020; color: #ffffff;}
         #sidebar { width: 220px; background: #191919; border-right: 1px solid rgba(255,255,255,0.08); padding: 15px 10px; display:flex; flex-direction:column;}
-        .nav-item { padding: 10px; cursor: pointer; border-radius: 4px; margin-bottom:5px; font-size: 14px;}
+        .nav-item { padding: 10px; cursor: pointer; border-radius: 4px; margin-bottom:5px; font-size: 14px; display:flex; justify-content:space-between;}
         .nav-item:hover { background: rgba(255,255,255,0.06); }
         .nav-item.active { background: rgba(255,255,255,0.1); font-weight: 600; }
-        #content { flex: 1; padding: 25px; overflow-y: auto; position: relative; }
-        h2 { margin-top: 0; font-size: 20px; font-weight: 500;}
-        .file-list { display: flex; flex-direction: column; gap: 5px; }
-        .file-item { padding: 12px; border: 1px solid rgba(255,255,255,0.05); background: #2d2d2d; display: flex; justify-content: space-between; align-items: center; border-radius: 6px; cursor: pointer; transition: 0.1s;}
+        #content { flex: 1; padding: 25px; overflow-y: auto; position: relative; display:flex; flex-direction:column;}
+        .header-bar { display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;}
+        .breadcrumbs { font-size: 16px; font-weight: 500; cursor: pointer;}
+        .breadcrumbs span:hover { text-decoration: underline; color: #60cdff;}
+        .file-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 15px; }
+        .file-item { padding: 15px; border: 1px solid rgba(255,255,255,0.05); background: #2d2d2d; display: flex; flex-direction: column; align-items: center; text-align:center; border-radius: 6px; cursor: pointer; transition: 0.1s;}
         .file-item:hover { background: #333333; }
+        .file-icon { font-size: 32px; margin-bottom: 10px;}
+        .file-name { font-size: 12px; word-break: break-all;}
         #drop-zone { position: absolute; top:0;left:0;right:0;bottom:0; background: rgba(96, 205, 255, 0.1); border: 2px dashed #60cdff; display:none; justify-content:center; align-items:center; z-index:10; font-size: 20px;}
         button { padding: 6px 14px; background: rgba(255,255,255,0.1); color:white; border:1px solid rgba(255,255,255,0.1); border-radius:4px; cursor:pointer;}
         button:hover { background: rgba(255,255,255,0.15); }
-        .import-btn { margin-top: auto; background: #0078D4; border:none;}
-        .import-btn:hover { background: #006abc; }
+        .primary-btn { background: #0078D4; border:none;}
+        .primary-btn:hover { background: #006abc; }
     </style>
 </head>
 <body>
@@ -24,12 +28,16 @@
         <div class="nav-item active" id="nav-imported">📁 Imported Files</div>
         <div class="nav-item" id="nav-desktop">🖥️ Desktop Apps</div>
         
+        <div style="flex:1"></div>
+        <button onclick="createFolder()" style="margin-bottom: 10px;">+ New Folder</button>
         <input type="file" id="file-input" style="display:none" multiple>
-        <button class="import-btn" onclick="document.getElementById('file-input').click()">Import File</button>
+        <button class="primary-btn" onclick="document.getElementById('file-input').click()">Import File</button>
     </div>
     <div id="content">
         <div id="drop-zone">Drop files here</div>
-        <h2 id="view-title">Imported Files</h2>
+        <div class="header-bar">
+            <div class="breadcrumbs" id="breadcrumbs">Imported Files</div>
+        </div>
         <div class="file-list" id="file-list"></div>
     </div>
 
@@ -37,18 +45,54 @@
         const VFS = window.parent.VFS;
         const OS = window.parent;
         let currentView = 'imported';
+        let currentPath = ''; // Empty string means Root
 
         async function render() {
             const list = document.getElementById('file-list');
             list.innerHTML = '';
             
+            // Update Breadcrumbs
+            if (currentView === 'imported') {
+                let crumbHTML = `<span onclick="navigateFolder('')">Imported Files</span>`;
+                if (currentPath !== '') {
+                    crumbHTML += ` / <span onclick="navigateFolder('${currentPath}')">${currentPath}</span>`;
+                }
+                document.getElementById('breadcrumbs').innerHTML = crumbHTML;
+            } else {
+                document.getElementById('breadcrumbs').innerHTML = `Desktop Apps`;
+            }
+
             if(currentView === 'imported') {
                 const files = await VFS.getFiles();
-                files.forEach(f => {
+                
+                // Filter files to only show those in the current folder path
+                let visibleItems = files.filter(f => {
+                    if (currentPath === '') return !f.name.includes('/');
+                    return f.name.startsWith(currentPath + '/') && f.name.substring(currentPath.length + 1).indexOf('/') === -1;
+                });
+
+                visibleItems.forEach(f => {
                     const div = document.createElement('div');
                     div.className = 'file-item';
-                    div.innerHTML = `<span>📄 ${f.name}</span> <button onclick="OS.openFile({name:'${f.name}', content: \`${f.content.replace(/`/g, '\\`')}\`}); event.stopPropagation();">Open</button>`;
-                    div.onclick = () => OS.openFile(f);
+                    const isFolder = f.type === 'folder';
+                    const displayName = f.name.split('/').pop();
+                    
+                    div.innerHTML = `
+                        <div class="file-icon">${isFolder ? '📁' : '📄'}</div>
+                        <div class="file-name">${displayName}</div>
+                    `;
+                    
+                    div.onclick = () => {
+                        if (isFolder) navigateFolder(f.name);
+                        else OS.openFile(f);
+                    };
+                    
+                    // Allow deleting
+                    div.oncontextmenu = (e) => {
+                        e.preventDefault();
+                        if(confirm(`Delete ${displayName}?`)) VFS.deleteFile(f.name);
+                    }
+                    
                     list.appendChild(div);
                 });
             } else {
@@ -56,17 +100,33 @@
                     if(app.preinstalled || OS.installedApps.includes(app.id)) {
                         const div = document.createElement('div');
                         div.className = 'file-item';
-                        // Pass app.id to correctly show active state on taskbar
-                        div.innerHTML = `<span>⚙️ ${app.name}.exe</span> <button onclick="OS.openWindow('${app.name}', '${app.path}', null, '${app.id}'); event.stopPropagation();">Run</button>`;
-                        div.onclick = () => OS.openWindow(app.name, app.path, null, app.id);
+                        div.innerHTML = `<div class="file-icon">⚙️</div><div class="file-name">${app.name}.exe</div>`;
+                        div.onclick = () => OS.openWindow(app, app.path);
                         list.appendChild(div);
                     }
                 });
             }
         }
 
-        document.getElementById('nav-imported').onclick = (e) => { currentView = 'imported'; document.getElementById('view-title').innerText = 'Imported Files'; document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active')); e.target.classList.add('active'); render(); };
-        document.getElementById('nav-desktop').onclick = (e) => { currentView = 'desktop'; document.getElementById('view-title').innerText = 'Desktop Apps'; document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active')); e.target.classList.add('active'); render(); };
+        function navigateFolder(path) {
+            currentPath = path;
+            render();
+        }
+
+        async function createFolder() {
+            if(currentView !== 'imported') return alert('Navigate to Imported Files to create folders.');
+            let folderName = prompt("Enter folder name:");
+            if (!folderName) return;
+            // Prevent slashes in folder names
+            folderName = folderName.replace(/\//g, ''); 
+            
+            const fullPath = currentPath === '' ? folderName : `${currentPath}/${folderName}`;
+            await VFS.saveFile(fullPath, 'folder', '');
+            render();
+        }
+
+        document.getElementById('nav-imported').onclick = (e) => { currentView = 'imported'; currentPath = ''; document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active')); e.target.classList.add('active'); render(); };
+        document.getElementById('nav-desktop').onclick = (e) => { currentView = 'desktop'; document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active')); e.target.classList.add('active'); render(); };
 
         // File Import / Drop
         document.getElementById('file-input').onchange = (e) => handleFiles(e.target.files);
@@ -77,10 +137,12 @@
         dropZone.ondrop = (e) => { e.preventDefault(); dropZone.style.display = 'none'; handleFiles(e.dataTransfer.files); };
 
         function handleFiles(files) {
+            if(currentView !== 'imported') { alert('Please navigate to Imported Files before importing.'); return; }
             for(let file of files) {
                 const reader = new FileReader();
                 reader.onload = async (e) => {
-                    await VFS.saveFile(file.name, file.type, e.target.result);
+                    const saveName = currentPath === '' ? file.name : `${currentPath}/${file.name}`;
+                    await VFS.saveFile(saveName, file.type, e.target.result);
                     if(currentView === 'imported') render();
                 };
                 if(file.name.endsWith('.png') || file.name.endsWith('.jpg')) reader.readAsDataURL(file);
