@@ -85,3 +85,15 @@ body { margin: 0; overflow: hidden; background: url('https://images.unsplash.com
 ::-webkit-scrollbar { width: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #444; border-radius: 5px; border: 2px solid var(--bg-solid); }
+/* Custom OS Dialogs */
+#os-dialog { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 50000; display: flex; justify-content: center; align-items: center; }
+#os-dialog.hidden { display: none !important; }
+.dialog-box { background: var(--bg-solid); width: 350px; border-radius: 8px; border: 1px solid var(--mica-border); box-shadow: 0 15px 50px rgba(0,0,0,0.6); padding: 20px; }
+.dialog-box h3 { margin: 0 0 10px 0; font-size: 16px; font-weight: 600;}
+.dialog-box p { margin: 0 0 15px 0; font-size: 13px; color: #ccc; word-wrap: break-word; white-space: pre-wrap;}
+.dialog-box input { width: 100%; padding: 10px; background: #111; border: 1px solid #444; border-radius: 4px; color: white; outline: none; margin-bottom: 15px;}
+.dialog-box input:focus { border-color: var(--accent); }
+.dialog-buttons { display: flex; justify-content: flex-end; gap: 10px; }
+.dialog-buttons button { padding: 6px 15px; border-radius: 4px; border: none; cursor: pointer; background: rgba(255,255,255,0.1); color: white; transition: 0.2s;}
+.dialog-buttons button.primary { background: var(--accent); }
+.dialog-buttons button:hover { opacity: 0.8; }
