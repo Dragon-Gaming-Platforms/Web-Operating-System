@@ -22,12 +22,8 @@
         <div class="start-search">
             <input type="text" placeholder="Search for apps, settings, and documents" disabled>
         </div>
-        <div class="start-header" style="display:flex; justify-content:space-between; align-items:center; padding-right:10px;">
-            <span>Pinned Apps & Store</span>
-            <button id="update-store-btn" onclick="updateAppList()" style="background:var(--accent); color:white; border:none; padding:6px 12px; border-radius:4px; cursor:pointer; font-size:12px; font-weight:bold; transition:0.2s;">
-                🔄 Update App List
-            </button>
-        </div>
+        <!-- Update Button Removed, just the header now -->
+        <div class="start-header">Pinned Apps & Store</div>
         <div id="store-categories"></div>
     </div>
 
@@ -58,12 +54,6 @@
     <!-- System Notifications -->
     <div id="notification-center"></div>
 
-    <div id="context-menu" class="hidden">
-        <div class="context-item" id="ctx-open">Open</div>
-        <div class="context-item" id="ctx-download">Download to PC</div>
-        <div class="context-item" id="ctx-personalize">Personalize Desktop</div>
-        <div class="context-item" id="ctx-delete" style="color: #ff6b6b;">Delete</div>
-    </div>
     <!-- OS Custom Dialog Box -->
     <div id="os-dialog" class="hidden">
         <div class="dialog-box">
@@ -76,7 +66,14 @@
             </div>
         </div>
     </div>
-    
+
+    <div id="context-menu" class="hidden">
+        <div class="context-item" id="ctx-open">Open</div>
+        <div class="context-item" id="ctx-download">Download to PC</div>
+        <div class="context-item" id="ctx-personalize">Personalize Desktop</div>
+        <div class="context-item" id="ctx-delete" style="color: #ff6b6b;">Delete</div>
+    </div>
+
     <script src="js/vfs.js"></script>
     <script src="js/os.js"></script>
 </body>
