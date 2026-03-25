@@ -1,3 +1,43 @@
+// ==========================================
+// CUSTOM OS DIALOG API (Bypasses Iframe Blocks)
+// ==========================================
+window.osModal = function(type, title, message, defaultValue = '') {
+    return new Promise((resolve) => {
+        const dialog = document.getElementById('os-dialog');
+        document.getElementById('dialog-title').innerText = title;
+        document.getElementById('dialog-message').innerText = message;
+        
+        const input = document.getElementById('dialog-input');
+        const btnCancel = document.getElementById('dialog-btn-cancel');
+        const btnOk = document.getElementById('dialog-btn-ok');
+        
+        if(type === 'prompt') {
+            input.style.display = 'block'; input.value = defaultValue; btnCancel.style.display = 'block';
+        } else if(type === 'confirm') {
+            input.style.display = 'none'; btnCancel.style.display = 'block';
+        } else { 
+            input.style.display = 'none'; btnCancel.style.display = 'none';
+        }
+        
+        dialog.classList.remove('hidden');
+        if(type === 'prompt') input.focus();
+        
+        btnOk.onclick = () => {
+            dialog.classList.add('hidden');
+            if(type === 'prompt') resolve(input.value);
+            else resolve(true);
+        };
+        
+        btnCancel.onclick = () => {
+            dialog.classList.add('hidden');
+            if(type === 'prompt') resolve(null);
+            else resolve(false);
+        };
+    });
+};
+window.osAlert = (title, msg) => window.osModal('alert', title, msg);
+window.osConfirm = (title, msg) => window.osModal('confirm', title, msg);
+window.osPrompt = (title, msg, def) => window.osModal('prompt', title, msg, def);
 let topZ = 100;
 let installedApps = JSON.parse(localStorage.getItem('installedApps') || '[]');
 let appRegistry = [];
