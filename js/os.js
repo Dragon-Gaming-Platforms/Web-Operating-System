@@ -1,48 +1,36 @@
+let topZ = 100;
+let installedApps = JSON.parse(localStorage.getItem('installedApps') || '[]');
+let appRegistry = JSON.parse(localStorage.getItem('dynamicAppRegistry') || '[]');
+window.browserEngines = JSON.parse(localStorage.getItem('browserEngines') || '[]'); // Global for Browser App
+let openWindows = []; 
+const pinnedApps = ['file-explorer', 'browser', 'settings']; 
+
 // ==========================================
-// CUSTOM OS DIALOG API (Bypasses Iframe Blocks)
+// CUSTOM OS DIALOG API 
 // ==========================================
 window.osModal = function(type, title, message, defaultValue = '') {
     return new Promise((resolve) => {
         const dialog = document.getElementById('os-dialog');
         document.getElementById('dialog-title').innerText = title;
         document.getElementById('dialog-message').innerText = message;
-        
         const input = document.getElementById('dialog-input');
         const btnCancel = document.getElementById('dialog-btn-cancel');
         const btnOk = document.getElementById('dialog-btn-ok');
         
-        if(type === 'prompt') {
-            input.style.display = 'block'; input.value = defaultValue; btnCancel.style.display = 'block';
-        } else if(type === 'confirm') {
-            input.style.display = 'none'; btnCancel.style.display = 'block';
-        } else { 
-            input.style.display = 'none'; btnCancel.style.display = 'none';
-        }
+        if(type === 'prompt') { input.style.display = 'block'; input.value = defaultValue; btnCancel.style.display = 'block'; } 
+        else if(type === 'confirm') { input.style.display = 'none'; btnCancel.style.display = 'block'; } 
+        else { input.style.display = 'none'; btnCancel.style.display = 'none'; }
         
         dialog.classList.remove('hidden');
         if(type === 'prompt') input.focus();
         
-        btnOk.onclick = () => {
-            dialog.classList.add('hidden');
-            if(type === 'prompt') resolve(input.value);
-            else resolve(true);
-        };
-        
-        btnCancel.onclick = () => {
-            dialog.classList.add('hidden');
-            if(type === 'prompt') resolve(null);
-            else resolve(false);
-        };
+        btnOk.onclick = () => { dialog.classList.add('hidden'); resolve(type === 'prompt' ? input.value : true); };
+        btnCancel.onclick = () => { dialog.classList.add('hidden'); resolve(type === 'prompt' ? null : false); };
     });
 };
 window.osAlert = (title, msg) => window.osModal('alert', title, msg);
 window.osConfirm = (title, msg) => window.osModal('confirm', title, msg);
 window.osPrompt = (title, msg, def) => window.osModal('prompt', title, msg, def);
-let topZ = 100;
-let installedApps = JSON.parse(localStorage.getItem('installedApps') || '[]');
-let appRegistry = [];
-let openWindows = []; 
-const pinnedApps = ['file-explorer', 'settings', 'terminal']; 
 
 document.addEventListener('contextmenu', e => { e.preventDefault(); hideContextMenu(); });
 document.addEventListener('click', (e) => {
@@ -50,7 +38,6 @@ document.addEventListener('click', (e) => {
     if(e.target.id === 'desktop') document.querySelectorAll('.desktop-icon').forEach(el => el.classList.remove('selected'));
 });
 
-// Iframe Communication API (Bulletproofs the OS)
 window.addEventListener('message', (e) => {
     if (!e.data || typeof e.data !== 'object') return;
     if (e.data.action === 'notify') showNotification(e.data.title, e.data.msg);
@@ -62,7 +49,6 @@ window.addEventListener('message', (e) => {
 });
 
 async function initOS() {
-    // Load Settings
     const savedTheme = localStorage.getItem('os_theme') || '#0078D4';
     document.documentElement.style.setProperty('--accent', savedTheme);
     const savedWallpaper = localStorage.getItem('wallpaper');
@@ -72,12 +58,13 @@ async function initOS() {
 
     await VFS.init();
     
-    const savedRegistry = localStorage.getItem('dynamicAppRegistry');
-    if (savedRegistry) appRegistry = JSON.parse(savedRegistry);
-
+    // Render from cache instantly so the user isn't waiting
     renderDesktop(); renderAppStore(); renderTaskbar(); 
     initDragSelection();
     
+    // Silently scan for updates in the background
+    silentUpdateAppList();
+
     setInterval(() => {
         const d = new Date();
         document.getElementById('clock-time').innerText = d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
@@ -92,83 +79,9 @@ async function initOS() {
 }
 
 // ------------------------------------
-// Toast Notifications
+// SILENT BACKGROUND SCANNER
 // ------------------------------------
-function showNotification(title, message) {
-    const center = document.getElementById('notification-center');
-    const toast = document.createElement('div');
-    toast.className = 'toast';
-    toast.innerHTML = `<h4>${title}</h4><p>${message}</p>`;
-    center.appendChild(toast);
-    
-    // Play subtle sound (using a tiny base64 blip to avoid file linking issues)
-    try {
-        const audio = new Audio("data:audio/wav;base64,UklGRlIAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YTEAAAAcHR0eHh4fHx8gICAhISEiIiIjIyMkJCQlJSUmJiYnJycoKCgA");
-        audio.play().catch(e=>{});
-    } catch(e) {}
-
-    setTimeout(() => {
-        toast.style.animation = 'fadeOut 0.3s ease forwards';
-        setTimeout(() => toast.remove(), 300);
-    }, 4000);
-}
-
-// ------------------------------------
-// Desktop Drag Selection
-// ------------------------------------
-function initDragSelection() {
-    const desktop = document.getElementById('desktop');
-    const box = document.getElementById('selection-box');
-    let isSelecting = false, startX, startY;
-
-    desktop.addEventListener('mousedown', (e) => {
-        if(e.target !== desktop) return;
-        isSelecting = true;
-        startX = e.clientX; startY = e.clientY;
-        box.style.left = startX + 'px'; box.style.top = startY + 'px';
-        box.style.width = '0px'; box.style.height = '0px';
-        box.classList.remove('hidden');
-        document.querySelectorAll('.desktop-icon').forEach(el => el.classList.remove('selected'));
-        // Prevent iframes from stealing mouse during drag
-        document.querySelectorAll('.drag-shield').forEach(s => s.style.display = 'block');
-    });
-
-    window.addEventListener('mousemove', (e) => {
-        if(!isSelecting) return;
-        const currentX = e.clientX, currentY = e.clientY;
-        const x = Math.min(startX, currentX), y = Math.min(startY, currentY);
-        const w = Math.abs(currentX - startX), h = Math.abs(currentY - startY);
-        
-        box.style.left = x + 'px'; box.style.top = y + 'px';
-        box.style.width = w + 'px'; box.style.height = h + 'px';
-
-        // Check intersections
-        document.querySelectorAll('.desktop-icon').forEach(icon => {
-            const rect = icon.getBoundingClientRect();
-            if(rect.left < x + w && rect.right > x && rect.top < y + h && rect.bottom > y) {
-                icon.classList.add('selected');
-            } else {
-                icon.classList.remove('selected');
-            }
-        });
-    });
-
-    window.addEventListener('mouseup', () => {
-        if(isSelecting) {
-            isSelecting = false; box.classList.add('hidden');
-            document.querySelectorAll('.drag-shield').forEach(s => s.style.display = 'none');
-        }
-    });
-}
-
-// ------------------------------------
-// App Fetching (GitHub API)
-// ------------------------------------
-async function updateAppList() {
-    const btn = document.getElementById('update-store-btn');
-    const originalText = btn.innerHTML;
-    btn.innerHTML = `⏳ Scanning...`; btn.style.opacity = '0.5'; btn.style.pointerEvents = 'none';
-
+async function silentUpdateAppList() {
     let user = '', repo = '';
     const host = window.location.hostname;
     if (host.includes('github.io')) {
@@ -176,13 +89,13 @@ async function updateAppList() {
         const pathParts = window.location.pathname.split('/').filter(p => p.length > 0);
         repo = pathParts.length > 0 ? pathParts[0] : host; 
     } else {
-        let repoInfo = prompt("Enter 'username/repo':", localStorage.getItem('gh_repo_cache') || "");
-        if (!repoInfo || !repoInfo.includes('/')) { resetBtn(); return; }
-        [user, repo] = repoInfo.split('/'); localStorage.setItem('gh_repo_cache', repoInfo);
+        return; // Skip auto-scan if running locally without github pages
     }
 
     try {
         let newRegistry = [];
+        let newEngines = [];
+        
         const fetchFolder = async (folder, isPreinstalled, defaultCategory) => {
             const res = await fetch(`https://api.github.com/repos/${user}/${repo}/contents/apps/${folder}`);
             if (res.ok) {
@@ -196,23 +109,78 @@ async function updateAppList() {
                         if(baseName === 'file-explorer') customIcon = '📁';
                         if(baseName === 'settings') customIcon = '⚙️';
                         if(baseName === 'terminal') customIcon = '⌨️';
+                        if(baseName === 'browser') customIcon = '🌐';
 
-                        newRegistry.push({ id: baseName, name: title, path: file.path, category: defaultCategory, preinstalled: isPreinstalled, icon: customIcon });
+                        if(folder === 'browsers') {
+                            newEngines.push({ id: baseName, name: title, path: file.path });
+                        } else {
+                            newRegistry.push({ id: baseName, name: title, path: file.path, category: defaultCategory, preinstalled: isPreinstalled, icon: customIcon });
+                        }
                     }
                 }
             }
         };
 
-        await fetchFolder('preinstalled', true, 'System'); await fetchFolder('store', false, 'App Store');
+        await fetchFolder('preinstalled', true, 'System'); 
+        await fetchFolder('store', false, 'App Store');
+        await fetchFolder('browsers', true, 'System'); // Scan new browser engines folder
+
         if (newRegistry.length > 0) {
             localStorage.setItem('dynamicAppRegistry', JSON.stringify(newRegistry));
+            localStorage.setItem('browserEngines', JSON.stringify(newEngines));
             appRegistry = newRegistry;
+            window.browserEngines = newEngines;
+            // Silently refresh UI
             renderDesktop(); renderAppStore(); renderTaskbar();
-            btn.innerHTML = `✅ Found ${newRegistry.length} Apps!`;
-            setTimeout(() => resetBtn(), 3000);
-        } else { alert("No HTML apps found."); resetBtn(); }
-    } catch(e) { console.error(e); alert("Failed to connect to GitHub."); resetBtn(); }
-    function resetBtn() { btn.innerHTML = originalText; btn.style.opacity = '1'; btn.style.pointerEvents = 'auto'; }
+        }
+    } catch(e) { 
+        console.warn("Silent app scan failed (Likely rate limited). Using cached apps."); 
+    }
+}
+
+function showNotification(title, message) {
+    const center = document.getElementById('notification-center');
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerHTML = `<h4>${title}</h4><p>${message}</p>`;
+    center.appendChild(toast);
+    try { const audio = new Audio("data:audio/wav;base64,UklGRlIAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YTEAAAAcHR0eHh4fHx8gICAhISEiIiIjIyMkJCQlJSUmJiYnJycoKCgA"); audio.play().catch(e=>{}); } catch(e) {}
+    setTimeout(() => { toast.style.animation = 'fadeOut 0.3s ease forwards'; setTimeout(() => toast.remove(), 300); }, 4000);
+}
+
+function initDragSelection() {
+    const desktop = document.getElementById('desktop');
+    const box = document.getElementById('selection-box');
+    let isSelecting = false, startX, startY;
+
+    desktop.addEventListener('mousedown', (e) => {
+        if(e.target !== desktop) return;
+        isSelecting = true; startX = e.clientX; startY = e.clientY;
+        box.style.left = startX + 'px'; box.style.top = startY + 'px';
+        box.style.width = '0px'; box.style.height = '0px'; box.classList.remove('hidden');
+        document.querySelectorAll('.desktop-icon').forEach(el => el.classList.remove('selected'));
+        document.querySelectorAll('.drag-shield').forEach(s => s.style.display = 'block');
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if(!isSelecting) return;
+        const currentX = e.clientX, currentY = e.clientY;
+        const x = Math.min(startX, currentX), y = Math.min(startY, currentY);
+        const w = Math.abs(currentX - startX), h = Math.abs(currentY - startY);
+        box.style.left = x + 'px'; box.style.top = y + 'px'; box.style.width = w + 'px'; box.style.height = h + 'px';
+        document.querySelectorAll('.desktop-icon').forEach(icon => {
+            const rect = icon.getBoundingClientRect();
+            if(rect.left < x + w && rect.right > x && rect.top < y + h && rect.bottom > y) icon.classList.add('selected');
+            else icon.classList.remove('selected');
+        });
+    });
+
+    window.addEventListener('mouseup', () => {
+        if(isSelecting) {
+            isSelecting = false; box.classList.add('hidden');
+            document.querySelectorAll('.drag-shield').forEach(s => s.style.display = 'none');
+        }
+    });
 }
 
 function getAppIconHTML(app, isSmall = false) {
@@ -225,9 +193,6 @@ function getAppIconHTML(app, isSmall = false) {
     return `<img src="${folderPath}/icons/${baseName}.png" class="${fallbackClass}" style="background:transparent; box-shadow:none; object-fit:contain;" onerror="this.onerror=null; this.src='${folderPath}/icons/${baseName}.jpg'; this.onerror=function(){ const d = document.createElement('div'); d.className='${fallbackClass}'; d.innerText='${app.name.charAt(0)}'; this.parentNode.replaceChild(d, this); }">`;
 }
 
-// ------------------------------------
-// UI Renderers & Window Manager
-// ------------------------------------
 function renderTaskbar() {
     const taskbar = document.getElementById('taskbar-icons');
     taskbar.innerHTML = ''; 
@@ -310,13 +275,14 @@ function renderAppStore() {
             if(app.preinstalled) return; 
             const btn = document.createElement('div'); btn.className = 'desktop-icon';
             btn.innerHTML = `${getAppIconHTML(app, false)}<span>${app.name}</span>`;
-            btn.onclick = () => {
+            btn.onclick = async () => {
                 if(!installedApps.includes(app.id)) {
-                    if(confirm(`Install ${app.name}?`)) {
+                    let doInstall = await window.osConfirm("Install App", `Do you want to install ${app.name}?`);
+                    if(doInstall) {
                         installedApps.push(app.id); localStorage.setItem('installedApps', JSON.stringify(installedApps));
                         renderDesktop(); renderAppStore(); renderTaskbar(); showNotification('App Installed', `${app.name} has been added to your desktop.`);
                     }
-                } else alert('App is already installed.');
+                } else await window.osAlert("Notice", "App is already installed.");
             };
             grid.appendChild(btn);
         });
@@ -389,7 +355,6 @@ function openWindow(appOrTitle, url, contentHTML = null, fallbackAppId = null) {
     };
 }
 
-// Media / File Player
 function openFile(file) {
     const ext = file.name.split('.').pop().toLowerCase();
     if(ext === 'html') openWindow(file.name.split('/').pop(), null, `<iframe srcdoc="${file.content.replace(/"/g, '&quot;')}"></iframe>`);
@@ -400,11 +365,9 @@ function openFile(file) {
     else alert('Filetype not supported');
 }
 
-// Global Context Menus
 let ctxTarget = null;
 function showContextMenu(e, type, data) {
-    e.preventDefault(); e.stopPropagation();
-    ctxTarget = { type, data };
+    e.preventDefault(); e.stopPropagation(); ctxTarget = { type, data };
     const menu = document.getElementById('context-menu');
     menu.style.left = e.clientX + 'px'; menu.style.top = e.clientY + 'px'; menu.classList.remove('hidden');
 
@@ -416,11 +379,14 @@ function showContextMenu(e, type, data) {
 function hideContextMenu() { document.getElementById('context-menu').classList.add('hidden'); }
 
 document.getElementById('ctx-open').onclick = () => { if(ctxTarget.type === 'app') openWindow(ctxTarget.data, ctxTarget.data.path); if(ctxTarget.type === 'file') openFile(ctxTarget.data); };
-document.getElementById('ctx-delete').onclick = () => {
+document.getElementById('ctx-delete').onclick = async () => {
     if(ctxTarget.type === 'app' && !ctxTarget.data.preinstalled) {
         installedApps = installedApps.filter(id => id !== ctxTarget.data.id); localStorage.setItem('installedApps', JSON.stringify(installedApps));
         renderDesktop(); renderAppStore(); renderTaskbar();
-    } else if (ctxTarget.type === 'file') { VFS.deleteFile(ctxTarget.data.name); }
+    } else if (ctxTarget.type === 'file') { 
+        let del = await window.osConfirm("Delete File", "Are you sure you want to delete this file?");
+        if(del) VFS.deleteFile(ctxTarget.data.name); 
+    }
 };
 document.getElementById('ctx-download').onclick = () => {
     if(ctxTarget.type === 'file') {
