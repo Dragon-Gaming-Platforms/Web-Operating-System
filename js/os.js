@@ -1,13 +1,13 @@
 let topZ = 100;
 let installedApps = JSON.parse(localStorage.getItem('installedApps') || '[]');
 let appRegistry = JSON.parse(localStorage.getItem('dynamicAppRegistry') || '[]');
-window.browserEngines = JSON.parse(localStorage.getItem('browserEngines') || '[]'); // Global for Browser App
+window.browserEngines = JSON.parse(localStorage.getItem('browserEngines') || '[]'); 
+// Pinned apps updated to include 'updates'
+const pinnedApps = ['file-explorer', 'browser', 'settings', 'updates']; 
 let openWindows = []; 
-const pinnedApps = ['file-explorer', 'browser', 'settings']; 
 
-// ==========================================
-// CUSTOM OS DIALOG API 
-// ==========================================
+
+// Custom Dialogs
 window.osModal = function(type, title, message, defaultValue = '') {
     return new Promise((resolve) => {
         const dialog = document.getElementById('os-dialog');
@@ -32,11 +32,13 @@ window.osAlert = (title, msg) => window.osModal('alert', title, msg);
 window.osConfirm = (title, msg) => window.osModal('confirm', title, msg);
 window.osPrompt = (title, msg, def) => window.osModal('prompt', title, msg, def);
 
+
 document.addEventListener('contextmenu', e => { e.preventDefault(); hideContextMenu(); });
 document.addEventListener('click', (e) => {
     hideContextMenu();
     if(e.target.id === 'desktop') document.querySelectorAll('.desktop-icon').forEach(el => el.classList.remove('selected'));
 });
+
 
 window.addEventListener('message', (e) => {
     if (!e.data || typeof e.data !== 'object') return;
@@ -48,6 +50,7 @@ window.addEventListener('message', (e) => {
     }
 });
 
+
 async function initOS() {
     const savedTheme = localStorage.getItem('os_theme') || '#0078D4';
     document.documentElement.style.setProperty('--accent', savedTheme);
@@ -56,14 +59,15 @@ async function initOS() {
     
     setTimeout(() => { document.getElementById('boot-screen').classList.add('hidden'); }, 1500);
 
+
     await VFS.init();
     
-    // Render from cache instantly so the user isn't waiting
     renderDesktop(); renderAppStore(); renderTaskbar(); 
     initDragSelection();
     
-    // Silently scan for updates in the background
     silentUpdateAppList();
+    checkForGitHubUpdates(); // <--- NEW: Checks for repository updates
+
 
     setInterval(() => {
         const d = new Date();
@@ -71,12 +75,39 @@ async function initOS() {
         document.getElementById('clock-date').innerText = d.toLocaleDateString();
     }, 1000);
 
+
     document.body.addEventListener('click', (e) => {
         if(!e.target.closest('#start-menu') && !e.target.closest('#start-btn')) document.getElementById('start-menu').classList.add('hidden');
     });
-
     window.addEventListener('vfs-updated', renderDesktop);
 }
+
+
+// ------------------------------------
+// GITHUB LIVE UPDATE CHECKER
+// ------------------------------------
+async function checkForGitHubUpdates() {
+    try {
+        const res = await fetch('https://api.github.com/repos/Dragon-Gaming-Platforms/Web-Operating-System/commits?per_page=1');
+        const data = await res.json();
+        
+        if (data && data.length > 0) {
+            const latestCommit = data[0];
+            const savedSha = localStorage.getItem('gh_last_commit_sha');
+            
+            // If we have a saved commit and it doesn't match the new one, notify the user!
+            if (savedSha && savedSha !== latestCommit.sha) {
+                showNotification("Update Available:", `${latestCommit.commit.message}<br><br>Reload your OS to update.`);
+            }
+            
+            // Save newest commit so we don't alert them again
+            localStorage.setItem('gh_last_commit_sha', latestCommit.sha);
+        }
+    } catch(e) {
+        console.warn("Could not check GitHub for updates (API Limit reached).");
+    }
+}
+
 
 // ------------------------------------
 // SILENT BACKGROUND SCANNER
@@ -88,14 +119,11 @@ async function silentUpdateAppList() {
         user = host.split('.')[0];
         const pathParts = window.location.pathname.split('/').filter(p => p.length > 0);
         repo = pathParts.length > 0 ? pathParts[0] : host; 
-    } else {
-        return; // Skip auto-scan if running locally without github pages
-    }
+    } else { return; }
+
 
     try {
-        let newRegistry = [];
-        let newEngines = [];
-        
+        let newRegistry = []; let newEngines = [];
         const fetchFolder = async (folder, isPreinstalled, defaultCategory) => {
             const res = await fetch(`https://api.github.com/repos/${user}/${repo}/contents/apps/${folder}`);
             if (res.ok) {
@@ -110,33 +138,31 @@ async function silentUpdateAppList() {
                         if(baseName === 'settings') customIcon = '⚙️';
                         if(baseName === 'terminal') customIcon = '⌨️';
                         if(baseName === 'browser') customIcon = '🌐';
+                        if(baseName === 'updates') customIcon = '📢'; // Auto assign megaphone
 
-                        if(folder === 'browsers') {
-                            newEngines.push({ id: baseName, name: title, path: file.path });
-                        } else {
-                            newRegistry.push({ id: baseName, name: title, path: file.path, category: defaultCategory, preinstalled: isPreinstalled, icon: customIcon });
-                        }
+
+                        if(folder === 'browsers') { newEngines.push({ id: baseName, name: title, path: file.path }); } 
+                        else { newRegistry.push({ id: baseName, name: title, path: file.path, category: defaultCategory, preinstalled: isPreinstalled, icon: customIcon }); }
                     }
                 }
             }
         };
 
+
         await fetchFolder('preinstalled', true, 'System'); 
         await fetchFolder('store', false, 'App Store');
-        await fetchFolder('browsers', true, 'System'); // Scan new browser engines folder
+        await fetchFolder('browsers', true, 'System'); 
+
 
         if (newRegistry.length > 0) {
             localStorage.setItem('dynamicAppRegistry', JSON.stringify(newRegistry));
             localStorage.setItem('browserEngines', JSON.stringify(newEngines));
-            appRegistry = newRegistry;
-            window.browserEngines = newEngines;
-            // Silently refresh UI
+            appRegistry = newRegistry; window.browserEngines = newEngines;
             renderDesktop(); renderAppStore(); renderTaskbar();
         }
-    } catch(e) { 
-        console.warn("Silent app scan failed (Likely rate limited). Using cached apps."); 
-    }
+    } catch(e) { console.warn("Silent app scan failed. Using cached apps."); }
 }
+
 
 function showNotification(title, message) {
     const center = document.getElementById('notification-center');
@@ -145,13 +171,15 @@ function showNotification(title, message) {
     toast.innerHTML = `<h4>${title}</h4><p>${message}</p>`;
     center.appendChild(toast);
     try { const audio = new Audio("data:audio/wav;base64,UklGRlIAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YTEAAAAcHR0eHh4fHx8gICAhISEiIiIjIyMkJCQlJSUmJiYnJycoKCgA"); audio.play().catch(e=>{}); } catch(e) {}
-    setTimeout(() => { toast.style.animation = 'fadeOut 0.3s ease forwards'; setTimeout(() => toast.remove(), 300); }, 4000);
+    setTimeout(() => { toast.style.animation = 'fadeOut 0.3s ease forwards'; setTimeout(() => toast.remove(), 300); }, 5000);
 }
+
 
 function initDragSelection() {
     const desktop = document.getElementById('desktop');
     const box = document.getElementById('selection-box');
     let isSelecting = false, startX, startY;
+
 
     desktop.addEventListener('mousedown', (e) => {
         if(e.target !== desktop) return;
@@ -161,6 +189,7 @@ function initDragSelection() {
         document.querySelectorAll('.desktop-icon').forEach(el => el.classList.remove('selected'));
         document.querySelectorAll('.drag-shield').forEach(s => s.style.display = 'block');
     });
+
 
     window.addEventListener('mousemove', (e) => {
         if(!isSelecting) return;
@@ -175,6 +204,7 @@ function initDragSelection() {
         });
     });
 
+
     window.addEventListener('mouseup', () => {
         if(isSelecting) {
             isSelecting = false; box.classList.add('hidden');
@@ -182,6 +212,7 @@ function initDragSelection() {
         }
     });
 }
+
 
 function getAppIconHTML(app, isSmall = false) {
     const fallbackClass = isSmall ? 'icon-placeholder-small' : 'icon-placeholder';
@@ -193,6 +224,7 @@ function getAppIconHTML(app, isSmall = false) {
     return `<img src="${folderPath}/icons/${baseName}.png" class="${fallbackClass}" style="background:transparent; box-shadow:none; object-fit:contain;" onerror="this.onerror=null; this.src='${folderPath}/icons/${baseName}.jpg'; this.onerror=function(){ const d = document.createElement('div'); d.className='${fallbackClass}'; d.innerText='${app.name.charAt(0)}'; this.parentNode.replaceChild(d, this); }">`;
 }
 
+
 function renderTaskbar() {
     const taskbar = document.getElementById('taskbar-icons');
     taskbar.innerHTML = ''; 
@@ -201,8 +233,10 @@ function renderTaskbar() {
     startBtn.onclick = (e) => { e.stopPropagation(); document.getElementById('start-menu').classList.toggle('hidden'); };
     taskbar.appendChild(startBtn);
 
+
     const activeAppIds = [...new Set(openWindows.filter(w => w.appId !== null).map(w => w.appId))];
     const appsToShow = [...new Set([...pinnedApps, ...activeAppIds])];
+
 
     appsToShow.forEach(appId => {
         const app = appRegistry.find(a => a.id === appId); if(!app) return;
@@ -210,6 +244,7 @@ function renderTaskbar() {
         const appWins = openWindows.filter(w => w.appId === appId);
         const topAppWin = appWins.length > 0 ? appWins[appWins.length - 1].winElement : null;
         const isActive = topAppWin && topAppWin === openWindows[openWindows.length - 1].winElement && topAppWin.style.display !== 'none';
+
 
         const btn = document.createElement('div');
         btn.className = `taskbar-icon ${isOpen ? 'is-open active-app' : ''} ${isActive ? 'is-active' : ''}`;
@@ -224,6 +259,7 @@ function renderTaskbar() {
     });
 }
 
+
 function bringToFront(win) {
     if(win.style.display === 'none') win.style.display = 'flex';
     topZ++; win.style.zIndex = topZ;
@@ -232,10 +268,12 @@ function bringToFront(win) {
     renderTaskbar();
 }
 
+
 function renderDesktop() {
     const desktop = document.getElementById('desktop');
     desktop.innerHTML = '';
     desktop.oncontextmenu = (e) => showContextMenu(e, 'desktop', null);
+
 
     appRegistry.forEach(app => {
         if(app.preinstalled || installedApps.includes(app.id)) {
@@ -247,6 +285,7 @@ function renderDesktop() {
             desktop.appendChild(icon);
         }
     });
+
 
     VFS.getFiles().then(files => {
         const rootFiles = files.filter(f => !f.name.includes('/'));
@@ -262,6 +301,7 @@ function renderDesktop() {
         });
     });
 }
+
 
 function renderAppStore() {
     const store = document.getElementById('store-categories');
@@ -290,14 +330,17 @@ function renderAppStore() {
     });
 }
 
+
 function openWindow(appOrTitle, url, contentHTML = null, fallbackAppId = null) {
     const title = typeof appOrTitle === 'string' ? appOrTitle : appOrTitle.name;
     const appId = typeof appOrTitle === 'string' ? fallbackAppId : appOrTitle.id;
     const headerIconHTML = typeof appOrTitle === 'string' ? '' : getAppIconHTML(appOrTitle, true);
 
+
     const win = document.createElement('div'); win.className = 'window';
     win.style.width = '800px'; win.style.height = '550px'; win.style.left = '150px'; win.style.top = '80px';
     topZ++; win.style.zIndex = topZ;
+
 
     win.innerHTML = `
         <div class="window-header">
@@ -317,9 +360,11 @@ function openWindow(appOrTitle, url, contentHTML = null, fallbackAppId = null) {
     openWindows.push({ winElement: win, appId: appId });
     renderTaskbar();
 
+
     const header = win.querySelector('.window-header');
     const snapPreview = document.getElementById('snap-preview');
     let isDown = false, startX, startY, winX, winY, snapMode = '';
+
 
     header.addEventListener('mousedown', e => {
         if(e.target.closest('.window-controls')) return; 
@@ -330,11 +375,13 @@ function openWindow(appOrTitle, url, contentHTML = null, fallbackAppId = null) {
         document.querySelectorAll('.drag-shield').forEach(s => s.style.display = 'block');
     });
 
+
     window.addEventListener('mousemove', e => {
         if(!isDown) return;
         win.style.left = (winX + e.clientX - startX) + 'px'; win.style.top = (winY + e.clientY - startY) + 'px';
         if (e.clientY < 10) { snapMode = 'top'; snapPreview.style.top = '0'; snapPreview.style.left = '0'; snapPreview.style.width = '100%'; snapPreview.style.height = 'calc(100% - 52px)'; snapPreview.classList.remove('hidden'); } else if (e.clientX < 10) { snapMode = 'left'; snapPreview.style.top = '0'; snapPreview.style.left = '0'; snapPreview.style.width = '50%'; snapPreview.style.height = 'calc(100% - 52px)'; snapPreview.classList.remove('hidden'); } else if (e.clientX > window.innerWidth - 10) { snapMode = 'right'; snapPreview.style.top = '0'; snapPreview.style.left = '50%'; snapPreview.style.width = '50%'; snapPreview.style.height = 'calc(100% - 52px)'; snapPreview.classList.remove('hidden'); } else { snapMode = ''; snapPreview.classList.add('hidden'); }
     });
+
 
     window.addEventListener('mouseup', () => {
         if(isDown && snapMode !== '') {
@@ -347,6 +394,7 @@ function openWindow(appOrTitle, url, contentHTML = null, fallbackAppId = null) {
         document.querySelectorAll('.drag-shield').forEach(s => s.style.display = 'none');
     });
 
+
     win.addEventListener('mousedown', () => bringToFront(win));
     win.querySelector('.close').onclick = () => { win.remove(); openWindows = openWindows.filter(w => w.winElement !== win); renderTaskbar(); };
     win.querySelector('.minimize').onclick = () => { win.style.display = 'none'; renderTaskbar(); };
@@ -355,6 +403,7 @@ function openWindow(appOrTitle, url, contentHTML = null, fallbackAppId = null) {
     };
 }
 
+
 function openFile(file) {
     const ext = file.name.split('.').pop().toLowerCase();
     if(ext === 'html') openWindow(file.name.split('/').pop(), null, `<iframe srcdoc="${file.content.replace(/"/g, '&quot;')}"></iframe>`);
@@ -362,8 +411,9 @@ function openFile(file) {
     else if(ext === 'png' || ext === 'jpg' || ext === 'jpeg' || ext === 'gif') openWindow(file.name.split('/').pop(), null, `<div style="background:#111;height:100%;display:flex;align-items:center;justify-content:center;"><img src="${file.content}" style="max-width:100%;max-height:100%;"></div>`);
     else if(ext === 'mp4' || ext === 'webm') openWindow(file.name.split('/').pop(), null, `<div style="background:#000;height:100%;display:flex;align-items:center;justify-content:center;"><video src="${file.content}" controls autoplay style="width:100%;height:100%;outline:none;"></video></div>`);
     else if(ext === 'mp3' || ext === 'wav') openWindow(file.name.split('/').pop(), null, `<div style="background:#111;height:100%;display:flex;align-items:center;justify-content:center; flex-direction:column; gap:20px;"><h2>🎵 ${file.name.split('/').pop()}</h2><audio src="${file.content}" controls autoplay style="width:80%;outline:none;"></audio></div>`);
-    else alert('Filetype not supported');
+    else window.osAlert('Error', 'Filetype not supported');
 }
+
 
 let ctxTarget = null;
 function showContextMenu(e, type, data) {
@@ -371,12 +421,14 @@ function showContextMenu(e, type, data) {
     const menu = document.getElementById('context-menu');
     menu.style.left = e.clientX + 'px'; menu.style.top = e.clientY + 'px'; menu.classList.remove('hidden');
 
+
     document.getElementById('ctx-open').style.display = type === 'desktop' ? 'none' : 'block';
     document.getElementById('ctx-delete').style.display = (type === 'desktop' || (type === 'app' && data.preinstalled)) ? 'none' : 'block';
     document.getElementById('ctx-download').style.display = type === 'file' ? 'block' : 'none';
     document.getElementById('ctx-personalize').style.display = type === 'desktop' ? 'block' : 'none';
 }
 function hideContextMenu() { document.getElementById('context-menu').classList.add('hidden'); }
+
 
 document.getElementById('ctx-open').onclick = () => { if(ctxTarget.type === 'app') openWindow(ctxTarget.data, ctxTarget.data.path); if(ctxTarget.type === 'file') openFile(ctxTarget.data); };
 document.getElementById('ctx-delete').onclick = async () => {
@@ -396,6 +448,7 @@ document.getElementById('ctx-download').onclick = () => {
     }
 };
 document.getElementById('ctx-personalize').onclick = () => { document.getElementById('personalize-dialog').classList.remove('hidden'); document.getElementById('wallpaper-input').focus(); };
+
 
 function setWallpaper() {
     const url = document.getElementById('wallpaper-input').value;
