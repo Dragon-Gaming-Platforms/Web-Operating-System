@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #202020; color: white; padding: 20px; margin: 0; height: 100vh; display: flex; flex-direction: column; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #444; }
+        th { background: #2d2d2d; }
+        button { background: #e81123; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
+        button:hover { opacity: 0.8; }
+    </style>
+</head>
+<body>
+    <h2>Task Manager</h2>
+    <table>
+        <thead><tr><th>App Name</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody id="proc-list"></tbody>
+    </table>
+    <script>
+        function render() {
+            const list = document.getElementById('proc-list');
+            list.innerHTML = '';
+            if(window.parent && window.parent.appRegistry && window.parent.openWindows) {
+                const wins = window.parent.openWindows;
+                wins.forEach(w => {
+                    const info = w.winElement.querySelector('.window-title').innerText.replace(/\s/g, '');
+                    const appMeta = window.parent.appRegistry.find(a => a.id === w.appId);
+                    list.innerHTML += `
+                        <tr>
+                            <td>${appMeta ? appMeta.name : 'External'}</td>
+                            <td>Running</td>
+                            <td><button onclick="kill('${info}')">End Task</button></td>
+                        </tr>
+                    `;
+                });
+            }
+        }
+        function kill(id) {
+             if(window.parent && window.parent.openWindows) {
+                 // Find window by title text matching roughly
+                 const w = window.parent.openWindows.find(x => x.winElement.querySelector('.window-title').innerText.includes(id));
+                 if(w) { w.winElement.remove(); window.parent.openWindows = window.parent.openWindows.filter(x => x !== w); render(); window.parent.renderTaskbar(); }
+             }
+        }
+        setInterval(render, 1000);
+        render();
+    </script>
+</body>
+</html>
