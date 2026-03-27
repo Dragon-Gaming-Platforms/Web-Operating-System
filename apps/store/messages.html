@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { margin: 0; font-family: 'Segoe UI', Tahoma, sans-serif; background: #202020; color: #fff; display: flex; height: 100vh; overflow: hidden; }
+        
+        /* Setup Screen */
+        #setup-screen { position: absolute; top:0; left:0; right:0; bottom:0; background: #202020; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; padding: 20px; text-align: center; }
+        .setup-box { background: #2d2d2d; padding: 30px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); max-width: 400px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.5);}
+        .setup-box input { width: 100%; padding: 12px; margin-bottom: 15px; background: #111; color: white; border: 1px solid #444; border-radius: 4px; box-sizing: border-box; outline: none; }
+        .setup-box input:focus { border-color: var(--accent, #0078D4); }
+        .setup-box button { width: 100%; padding: 12px; background: var(--accent, #0078D4); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+
+        /* Main Chat App */
+        #sidebar { width: 200px; background: #191919; border-right: 1px solid rgba(255,255,255,0.08); display: flex; flex-direction: column; }
+        .sidebar-header { padding: 15px; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center;}
+        .sidebar-header button { background: none; border: none; color: var(--accent, #0078D4); cursor: pointer; font-size: 18px; }
+        #room-list { flex: 1; overflow-y: auto; padding: 10px; }
+        .room-item { padding: 10px; cursor: pointer; border-radius: 4px; margin-bottom: 5px; font-size: 14px;}
+        .room-item:hover { background: rgba(255,255,255,0.06); }
+        .room-item.active { background: rgba(255,255,255,0.1); font-weight: 600; border-left: 3px solid var(--accent, #0078D4); }
+
+        #chat-area { flex: 1; display: flex; flex-direction: column; background: #202020;}
+        #chat-header { padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.08); font-weight: bold; background: #191919;}
+        #messages-container { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+        
+        .msg-wrapper { display: flex; flex-direction: column; max-width: 80%; }
+        .msg-wrapper.me { align-self: flex-end; }
+        .msg-wrapper.other { align-self: flex-start; }
+        
+        .msg-sender { font-size: 11px; color: #aaa; margin-bottom: 4px; display: flex; justify-content: space-between;}
+        .msg-bubble { padding: 10px 14px; border-radius: 8px; font-size: 14px; line-height: 1.4; word-wrap: break-word; position: relative;}
+        .msg-wrapper.me .msg-bubble { background: var(--accent, #0078D4); border-bottom-right-radius: 2px; }
+        .msg-wrapper.other .msg-bubble { background: #333; border-bottom-left-radius: 2px; border: 1px solid rgba(255,255,255,0.08); }
+        
+        .del-btn { font-size: 10px; color: #ff6b6b; cursor: pointer; margin-left: 10px; display: none;}
+        .is-admin .del-btn { display: inline; }
+
+        #input-area { padding: 15px; background: #191919; border-top: 1px solid rgba(255,255,255,0.08); display: flex; gap: 10px; }
+        #chat-input { flex: 1; background: #111; color: white; border: 1px solid #444; padding: 12px; border-radius: 20px; outline: none; }
+        #chat-input:focus { border-color: var(--accent, #0078D4); }
+        #send-btn { background: var(--accent, #0078D4); color: white; border: none; padding: 0 20px; border-radius: 20px; cursor: pointer; font-weight: bold; }
+        
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+    <!-- Setup Screen -->
+    <div id="setup-screen">
+        <div class="setup-box">
+            <h2>💬 Messages Setup</h2>
+            <p style="font-size: 12px; color: #aaa; margin-bottom: 20px;">Connect to your Google Apps Script Server.</p>
+            <input type="text" id="backend-url" placeholder="Google Web App URL">
+            <input type="text" id="username" placeholder="Choose a Username">
+            <button onclick="saveSetup()">Join Chat</button>
+        </div>
+    </div>
+
+    <!-- Main Chat UI -->
+    <div id="sidebar">
+        <div class="sidebar-header">
+            Rooms
+            <button onclick="createNewRoom()">+</button>
+        </div>
+        <div id="room-list"></div>
+    </div>
+
+    <div id="chat-area">
+        <div id="chat-header"># general</div>
+        <div id="messages-container"></div>
+        
+        <div id="input-area">
+            <input type="text" id="chat-input" placeholder="Message..." autocomplete="off">
+            <button id="send-btn" onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        // Use OS Theme color natively
+        document.documentElement.style.setProperty('--accent', window.parent.localStorage.getItem('os_theme') || '#0078D4');
+        const OS = window.parent; // Link to Web OS API
+
+        let BACKEND_URL = localStorage.getItem('chat_backend_url');
+        let USERNAME = localStorage.getItem('chat_username');
+        let currentRoom = localStorage.getItem('chat_current_room') || 'general';
+        let isAdmin = false;
+        let lastMsgCount = 0;
+
+        if (BACKEND_URL && USERNAME) {
+            document.getElementById('setup-screen').style.display = 'none';
+            fetchData();
+            setInterval(fetchData, 3000); // Ping every 3 seconds for new messages
+        }
+
+        function saveSetup() {
+            const url = document.getElementById('backend-url').value.trim();
+            const user = document.getElementById('username').value.trim();
+            if (!url || !user) return OS.osAlert("Error", "Please fill out all fields.");
+            
+            localStorage.setItem('chat_backend_url', url);
+            localStorage.setItem('chat_username', user);
+            BACKEND_URL = url; USERNAME = user;
+            
+            document.getElementById('setup-screen').style.display = 'none';
+            fetchData();
+            setInterval(fetchData, 3000);
+        }
+
+        async function apiCall(payload) {
+            payload.user = USERNAME;
+            payload.room = currentRoom;
+            try {
+                const res = await fetch(BACKEND_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify(payload)
+                });
+                return await res.json();
+            } catch (e) { return { error: "Network Error" }; }
+        }
+
+        async function fetchData() {
+            const data = await apiCall({ action: "getData" });
+            if (data.error) return;
+
+            isAdmin = data.admin;
+            if(isAdmin) document.body.classList.add('is-admin');
+
+            // Render Rooms
+            const roomList = document.getElementById('room-list');
+            roomList.innerHTML = '';
+            data.rooms.forEach(r => {
+                const div = document.createElement('div');
+                div.className = `room-item ${r === currentRoom ? 'active' : ''}`;
+                div.innerText = `# ${r}`;
+                div.onclick = () => {
+                    currentRoom = r;
+                    localStorage.setItem('chat_current_room', r);
+                    document.getElementById('chat-header').innerText = `# ${r}`;
+                    lastMsgCount = 0; // Force scroll to bottom on room change
+                    fetchData();
+                };
+                roomList.appendChild(div);
+            });
+
+            // Render Messages
+            const msgContainer = document.getElementById('messages-container');
+            const isAtBottom = msgContainer.scrollHeight - msgContainer.scrollTop - msgContainer.clientHeight < 50;
+            
+            msgContainer.innerHTML = '';
+            data.messages.forEach(m => {
+                const isMe = m.user === USERNAME;
+                const time = new Date(m.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                
+                // Secure HTML rendering
+                let safeText = m.text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+                msgContainer.innerHTML += `
+                    <div class="msg-wrapper ${isMe ? 'me' : 'other'}">
+                        <div class="msg-sender">
+                            <span>${m.user}</span>
+                            <span>${time} <span class="del-btn" onclick="deleteMsg('${m.id}')">🗑</span></span>
+                        </div>
+                        <div class="msg-bubble">${safeText}</div>
+                    </div>
+                `;
+            });
+
+            // Scroll down if a new message arrived
+            if (data.messages.length > lastMsgCount || isAtBottom) {
+                msgContainer.scrollTop = msgContainer.scrollHeight;
+                lastMsgCount = data.messages.length;
+            }
+        }
+
+        async function createNewRoom() {
+            let roomName = await OS.osPrompt("New Room", "Enter a name for the new public room:");
+            if(roomName) {
+                await apiCall({ action: "createRoom", roomName: roomName.replace(/\s+/g, '-').toLowerCase() });
+                fetchData();
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('chat-input');
+            const text = input.value.trim();
+            if (!text) return;
+
+            input.value = '';
+            await apiCall({ action: "send", text: text });
+            fetchData(); // Instantly update ui
+        }
+
+        document.getElementById('chat-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+        async function deleteMsg(id) {
+            let conf = await OS.osConfirm("Delete", "Delete this message? (Admins only)");
+            if (conf) {
+                await apiCall({ action: "deleteMessage", msgId: id });
+                fetchData();
+            }
+        }
+    </script>
+</body>
+</html>
