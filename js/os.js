@@ -36,7 +36,7 @@ function showAuthError(msg) {
 async function checkAuth() {
     const email = localStorage.getItem('os_email');
     const pass = localStorage.getItem('os_password');
-    const url = localStorage.getItem('chat_backend_url'); // Shared with Chat app
+    const url = localStorage.getItem('chat_backend_url');
     
     if(url) document.getElementById('backend-url').value = url;
 
@@ -53,8 +53,7 @@ async function checkAuth() {
                 document.getElementById('lock-screen').classList.remove('hidden');
             }
         } catch (e) {
-            // If offline or network error, let them in based on local cache
-            unlockOS(email);
+            unlockOS(email); // Offline fallback
         }
     } else {
         document.getElementById('lock-screen').classList.remove('hidden');
@@ -74,15 +73,13 @@ async function submitAuth() {
 
     try {
         const payload = { action: isLoginMode ? 'login' : 'register', email: email, password: pass };
-        const res = await fetch(url, { method: 'POST', headers: {'Content-Type': 'text/plain'}, body: JSON.stringify(payload) });
+        const res = await fetch(url, { method: 'POST', headers: {'Content-Type': 'text/plain;charset=utf-8'}, body: JSON.stringify(payload) });
         const data = await res.json();
         
         if(data.success) {
-            // Save universally for OS and Apps
             localStorage.setItem('chat_backend_url', url);
             localStorage.setItem('os_email', email);
             localStorage.setItem('os_password', pass);
-            // Sync with Messages App credentials
             localStorage.setItem('chat_email', email);
             localStorage.setItem('chat_password', pass);
             
@@ -106,14 +103,6 @@ function unlockOS(email) {
         initOS(email); 
     }, 500);
 }
-}
-
-function unlockOS(email) {
-    const ls = document.getElementById('lock-screen');
-    ls.style.transition = "filter 0.5s, opacity 0.5s";
-    ls.style.filter = "blur(20px)";
-    setTimeout(() => { ls.classList.add('hidden'); initOS(email); }, 500);
-}
 
 // --------------------------------------------------------
 // CORE OS INIT
@@ -125,9 +114,10 @@ async function initOS(userEmail) {
     const savedWallpaper = localStorage.getItem('wallpaper');
     if (savedWallpaper) document.body.style.backgroundImage = `url('${savedWallpaper}')`;
     
-    // Boot Sound
     await VFS.init();
-    renderDesktop(); renderAppStore(); renderTaskbar(); 
+    renderDesktop(); 
+    renderAppStore(); 
+    renderTaskbar(); 
     initDragSelection();
     silentUpdateAppList();
     checkForGitHubUpdates();
@@ -155,9 +145,14 @@ function openWindow(appOrTitle, url, contentHTML = null, fallbackAppId = null) {
     const appId = typeof appOrTitle === 'string' ? fallbackAppId : appOrTitle.id;
     const headerIconHTML = typeof appOrTitle === 'string' ? '' : getAppIconHTML(appOrTitle, true);
 
-    const win = document.createElement('div'); win.className = 'window';
-    win.style.width = '800px'; win.style.height = '550px'; win.style.left = '150px'; win.style.top = '80px';
-    topZ++; win.style.zIndex = topZ;
+    const win = document.createElement('div'); 
+    win.className = 'window';
+    win.style.width = '800px'; 
+    win.style.height = '550px'; 
+    win.style.left = '150px'; 
+    win.style.top = '80px';
+    topZ++; 
+    win.style.zIndex = topZ;
 
     win.innerHTML = `
         <div class="window-header">
@@ -168,9 +163,9 @@ function openWindow(appOrTitle, url, contentHTML = null, fallbackAppId = null) {
                 <div class="win-btn close" style="font-size: 14px;">✕</div>
             </div>
         </div>
-        <div class="resizer-handle resizer-rw"></div>
-        <div class="resizer-handle resizer-ns"></div>
-        <div class="resizer-handle resizer-br"></div>
+        <div class="resize-handle resizer-rw"></div>
+        <div class="resize-handle resizer-ns"></div>
+        <div class="resize-handle resizer-br"></div>
         <div class="window-content">
             <div class="drag-shield"></div>
             ${contentHTML ? contentHTML : `<iframe src="${url}" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>`}
@@ -180,20 +175,19 @@ function openWindow(appOrTitle, url, contentHTML = null, fallbackAppId = null) {
     openWindows.push({ winElement: win, appId: appId });
     renderTaskbar();
 
-    // Draggable Header
     const header = win.querySelector('.window-header');
     const snapPreview = document.getElementById('snap-preview');
     let isDown = false, startX, startY, winX, winY, snapMode = '';
 
     // Resizing Logic
-    const resizers = win.querySelectorAll('.resizer-handle');
+    const resizers = win.querySelectorAll('.resize-handle');
     resizers.forEach(resizer => {
         resizer.addEventListener('mousedown', (e) => {
             e.stopPropagation(); e.preventDefault();
             isDown = true;
             startX = e.clientX; startY = e.clientY;
             winX = parseFloat(win.style.width); winY = parseFloat(win.style.height);
-            win.style.position = 'fixed'; // Prevent layout shifts
+            win.style.position = 'absolute'; 
             document.querySelectorAll('.drag-shield').forEach(s => s.style.display = 'block');
             
             function onMouseMove(me) {
@@ -216,20 +210,28 @@ function openWindow(appOrTitle, url, contentHTML = null, fallbackAppId = null) {
         });
     });
 
+    // Dragging Logic
     header.addEventListener('mousedown', e => {
         if(e.target.closest('.window-controls')) return; 
         isDown = true; bringToFront(win);
         startX = e.clientX; startY = e.clientY;
-        if (win.dataset.snapped) { win.style.width = win.dataset.oldWidth; win.style.height = win.dataset.oldHeight; win.dataset.snapped = ""; winX = startX - (parseInt(win.style.width) / 2); win.style.left = winX + 'px'; win.style.top = '80px'; } else { winX = win.offsetLeft; }
+        if (win.dataset.snapped) { 
+            win.style.width = win.dataset.oldWidth; 
+            win.style.height = win.dataset.oldHeight; 
+            win.dataset.snapped = ""; 
+            winX = startX - (parseInt(win.style.width) / 2); 
+            win.style.left = winX + 'px'; 
+            win.style.top = '80px'; 
+        } else { winX = win.offsetLeft; }
         winY = win.offsetTop;
         document.querySelectorAll('.drag-shield').forEach(s => s.style.display = 'block');
     });
 
     window.addEventListener('mousemove', e => {
-        if(!isDown) return;
+        if(!isDown || e.target.classList.contains('resize-handle')) return;
         win.style.left = (winX + e.clientX - startX) + 'px';
         win.style.top = (winY + e.clientY - startY) + 'px';
-        // Snap Detection
+        
         if (e.clientY < 10) { snapMode = 'top'; snapPreview.style.top = '0'; snapPreview.style.left = '0'; snapPreview.style.width = '100%'; snapPreview.style.height = 'calc(100% - 52px)'; snapPreview.classList.remove('hidden'); }
         else if (e.clientX < 10) { snapMode = 'left'; snapPreview.style.top = '0'; snapPreview.style.left = '0'; snapPreview.style.width = '50%'; snapPreview.style.height = 'calc(100% - 52px)'; snapPreview.classList.remove('hidden'); }
         else if (e.clientX > window.innerWidth - 10) { snapMode = 'right'; snapPreview.style.top = '0'; snapPreview.style.left = '50%'; snapPreview.style.width = '50%'; snapPreview.style.height = 'calc(100% - 52px)'; snapPreview.classList.remove('hidden'); }
@@ -238,7 +240,11 @@ function openWindow(appOrTitle, url, contentHTML = null, fallbackAppId = null) {
 
     window.addEventListener('mouseup', () => {
         if(isDown && snapMode !== '') {
-            win.dataset.oldWidth = win.style.width; win.dataset.oldHeight = win.style.height; win.dataset.snapped = "true"; win.style.top = '0'; win.style.height = 'calc(100% - 52px)';
+            win.dataset.oldWidth = win.style.width; 
+            win.dataset.oldHeight = win.style.height; 
+            win.dataset.snapped = "true"; 
+            win.style.top = '0'; 
+            win.style.height = 'calc(100% - 52px)';
             if (snapMode === 'top') { win.style.left = '0'; win.style.width = '100%'; }
             if (snapMode === 'left') { win.style.left = '0'; win.style.width = '50%'; }
             if (snapMode === 'right') { win.style.left = '50%'; win.style.width = '50%'; }
@@ -256,7 +262,9 @@ function openWindow(appOrTitle, url, contentHTML = null, fallbackAppId = null) {
     };
 }
 
-// Helper Modal API
+// --------------------------------------------------------
+// MODALS, API, AND COMMUNICATIONS
+// --------------------------------------------------------
 window.osModal = function(type, title, message, defaultValue = '') {
     return new Promise((resolve) => {
         const dialog = document.getElementById('os-dialog');
@@ -265,20 +273,35 @@ window.osModal = function(type, title, message, defaultValue = '') {
         const input = document.getElementById('dialog-input');
         const btnCancel = document.getElementById('dialog-btn-cancel');
         const btnOk = document.getElementById('dialog-btn-ok');
+        
         if(type === 'prompt') { input.style.display = 'block'; input.value = defaultValue; btnCancel.style.display = 'block'; } 
         else if(type === 'confirm') { input.style.display = 'none'; btnCancel.style.display = 'block'; } 
         else { input.style.display = 'none'; btnCancel.style.display = 'none'; }
+        
         dialog.classList.remove('hidden');
         if(type === 'prompt') input.focus();
+        
         btnOk.onclick = () => { dialog.classList.add('hidden'); resolve(type === 'prompt' ? input.value : true); };
         btnCancel.onclick = () => { dialog.classList.add('hidden'); resolve(type === 'prompt' ? null : false); };
     });
 };
-window.osAlert = (t,m)=>window.osModal('alert',t,m); window.osConfirm = (t,m)=>window.osModal('confirm',t,m); window.osPrompt = (t,m,d)=>window.osModal('prompt',t,m,d);
+window.osAlert = (t,m)=>window.osModal('alert',t,m); 
+window.osConfirm = (t,m)=>window.osModal('confirm',t,m); 
+window.osPrompt = (t,m,d)=>window.osModal('prompt',t,m,d);
 
-// Render Functions (Desktop, Taskbar, Store, etc remain mostly same with minor auth tweaks)
-// ... [Use previous render functions but update renderDesktop to include File Creation Options] ...
-// Note: Due to length, here is the critical `renderDesktop` patch:
+window.addEventListener('message', (e) => {
+    if (!e.data || typeof e.data !== 'object') return;
+    if (e.data.action === 'notify') showNotification(e.data.title, e.data.msg);
+    if (e.data.action === 'openWindow') openWindow(e.data.title || 'App', e.data.url, e.data.content, e.data.appId);
+    if (e.data.action === 'changeTheme') {
+        document.documentElement.style.setProperty('--accent', e.data.color);
+        localStorage.setItem('os_theme', e.data.color);
+    }
+});
+
+// --------------------------------------------------------
+// RENDERERS
+// --------------------------------------------------------
 function renderDesktop() {
     const desktop = document.getElementById('desktop');
     desktop.innerHTML = '';
@@ -302,7 +325,7 @@ function renderDesktop() {
             const icon = document.createElement('div'); icon.className = 'desktop-icon';
             let ext = file.name.split('.').pop();
             icon.innerHTML = `<div class="icon-placeholder" style="background:#555">${ext.toUpperCase()}</div><span>${file.name}</span>`;
-            icon.onclick = (e) => { e.stopPropagation(); icon.classList.add('selected'); };
+            icon.onclick = (e) => { e.stopPropagation(); document.querySelectorAll('.desktop-icon').forEach(el => el.classList.remove('selected')); icon.classList.add('selected'); };
             icon.ondblclick = () => openFile(file);
             icon.oncontextmenu = (e) => { e.stopPropagation(); showContextMenu(e, 'file', file); };
             desktop.appendChild(icon);
@@ -310,56 +333,268 @@ function renderDesktop() {
     });
 }
 
-// Rest of render functions (Taskbar, Store, Drag Selection, Context Menu, Open File, Settings...)
-// Copy these exactly from the previous version I gave you, just ensure 'showContextMenu' includes NEW items below:
+function renderAppStore() {
+    const store = document.getElementById('store-categories');
+    store.innerHTML = '';
+    const categories = [...new Set(appRegistry.map(a => a.category || 'Other'))];
+    
+    categories.forEach(cat => {
+        const section = document.createElement('div'); section.innerHTML = `<div class="category-header">${cat}</div>`;
+        const grid = document.createElement('div'); grid.className = 'app-grid';
+        appRegistry.filter(a => a.category === cat).forEach(app => {
+            if(app.preinstalled) return; 
+            const btn = document.createElement('div'); btn.className = 'desktop-icon';
+            btn.innerHTML = `${getAppIconHTML(app, false)}<span>${app.name}</span>`;
+            btn.onclick = async () => {
+                if(!installedApps.includes(app.id)) {
+                    let doInstall = await window.osConfirm("Install App", `Do you want to install ${app.name}?`);
+                    if(doInstall) {
+                        installedApps.push(app.id); localStorage.setItem('installedApps', JSON.stringify(installedApps));
+                        renderDesktop(); renderAppStore(); renderTaskbar(); showNotification('App Installed', `${app.name} has been added to your desktop.`);
+                    }
+                } else await window.osAlert("Notice", "App is already installed.");
+            };
+            grid.appendChild(btn);
+        });
+        section.appendChild(grid); store.appendChild(section);
+    });
+}
+
+function renderTaskbar() {
+    const taskbar = document.getElementById('taskbar-icons');
+    taskbar.innerHTML = ''; 
+    const startBtn = document.createElement('div'); startBtn.className = 'taskbar-icon start-btn'; startBtn.id = 'start-btn';
+    startBtn.innerHTML = `<img class="start-icon" src="https://upload.wikimedia.org/wikipedia/commons/e/e6/Windows_11_logo.svg">`;
+    startBtn.onclick = (e) => { e.stopPropagation(); document.getElementById('start-menu').classList.toggle('hidden'); };
+    taskbar.appendChild(startBtn);
+
+    const activeAppIds = [...new Set(openWindows.filter(w => w.appId !== null).map(w => w.appId))];
+    const appsToShow = [...new Set([...pinnedApps, ...activeAppIds])];
+
+    appsToShow.forEach(appId => {
+        const app = appRegistry.find(a => a.id === appId); if(!app) return;
+        const isOpen = activeAppIds.includes(appId);
+        const appWins = openWindows.filter(w => w.appId === appId);
+        const topAppWin = appWins.length > 0 ? appWins[appWins.length - 1].winElement : null;
+        const isActive = topAppWin && topAppWin === openWindows[openWindows.length - 1].winElement && topAppWin.style.display !== 'none';
+
+        const btn = document.createElement('div');
+        btn.className = `taskbar-icon ${isOpen ? 'is-open active-app' : ''} ${isActive ? 'is-active' : ''}`;
+        btn.innerHTML = getAppIconHTML(app, true);
+        btn.onclick = () => {
+            if (isOpen) {
+                if (isActive) { topAppWin.style.display = 'none'; renderTaskbar(); } 
+                else { topAppWin.style.display = 'flex'; bringToFront(topAppWin); }
+            } else { openWindow(app, app.path); }
+        };
+        taskbar.appendChild(btn);
+    });
+}
+
+// --------------------------------------------------------
+// BACKGROUND FETCHERS
+// --------------------------------------------------------
+async function silentUpdateAppList() {
+    let user = '', repo = '';
+    const host = window.location.hostname;
+    if (host.includes('github.io')) {
+        user = host.split('.')[0];
+        const pathParts = window.location.pathname.split('/').filter(p => p.length > 0);
+        repo = pathParts.length > 0 ? pathParts[0] : host; 
+    } else { return; }
+
+    try {
+        let newRegistry = []; let newEngines = [];
+        const fetchFolder = async (folder, isPreinstalled, defaultCategory) => {
+            const res = await fetch(`https://api.github.com/repos/${user}/${repo}/contents/apps/${folder}`);
+            if (res.ok) {
+                const files = await res.json();
+                for(let file of files) {
+                    if(file.name.endsWith('.html')) {
+                        let baseName = file.name.replace('.html', '');
+                        let title = baseName.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                        
+                        let customIcon = null;
+                        if(baseName === 'file-explorer') customIcon = '📁';
+                        if(baseName === 'settings') customIcon = '⚙️';
+                        if(baseName === 'terminal') customIcon = '⌨️';
+                        if(baseName === 'browser') customIcon = '🌐';
+                        if(baseName === 'updates') customIcon = '📢';
+
+                        if(folder === 'browsers') { newEngines.push({ id: baseName, name: title, path: file.path }); } 
+                        else { newRegistry.push({ id: baseName, name: title, path: file.path, category: defaultCategory, preinstalled: isPreinstalled, icon: customIcon }); }
+                    }
+                }
+            }
+        };
+        await fetchFolder('preinstalled', true, 'System'); 
+        await fetchFolder('store', false, 'App Store');
+        await fetchFolder('browsers', true, 'System'); 
+
+        if (newRegistry.length > 0) {
+            localStorage.setItem('dynamicAppRegistry', JSON.stringify(newRegistry));
+            localStorage.setItem('browserEngines', JSON.stringify(newEngines));
+            appRegistry = newRegistry; window.browserEngines = newEngines;
+            renderDesktop(); renderAppStore(); renderTaskbar();
+        }
+    } catch(e) { console.warn("Silent app scan failed."); }
+}
+
+async function checkForGitHubUpdates() {
+    try {
+        const res = await fetch('https://api.github.com/repos/Dragon-Gaming-Platforms/Web-Operating-System/commits?per_page=1');
+        const data = await res.json();
+        if (data && data.length > 0) {
+            const latestCommit = data[0];
+            const savedSha = localStorage.getItem('gh_last_commit_sha');
+            if (savedSha && savedSha !== latestCommit.sha) {
+                showNotification("Update Available:", `${latestCommit.commit.message}<br><br>Reload your OS to update.`);
+            }
+            localStorage.setItem('gh_last_commit_sha', latestCommit.sha);
+        }
+    } catch(e) { }
+}
+
+// --------------------------------------------------------
+// UI UTILITIES
+// --------------------------------------------------------
+function bringToFront(win) {
+    if(win.style.display === 'none') win.style.display = 'flex';
+    topZ++; win.style.zIndex = topZ;
+    const index = openWindows.findIndex(w => w.winElement === win);
+    if(index !== -1) { const obj = openWindows.splice(index, 1)[0]; openWindows.push(obj); }
+    renderTaskbar();
+}
+
+function showNotification(title, message) {
+    const center = document.getElementById('notification-center');
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerHTML = `<h4>${title}</h4><p>${message}</p>`;
+    center.appendChild(toast);
+    try { const audio = new Audio("data:audio/wav;base64,UklGRlIAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YTEAAAAcHR0eHh4fHx8gICAhISEiIiIjIyMkJCQlJSUmJiYnJycoKCgA"); audio.play().catch(e=>{}); } catch(e) {}
+    setTimeout(() => { toast.style.animation = 'fadeOut 0.3s ease forwards'; setTimeout(() => toast.remove(), 300); }, 5000);
+}
+
+function initDragSelection() {
+    const desktop = document.getElementById('desktop');
+    const box = document.getElementById('selection-box');
+    let isSelecting = false, startX, startY;
+
+    desktop.addEventListener('mousedown', (e) => {
+        if(e.target !== desktop) return;
+        isSelecting = true; startX = e.clientX; startY = e.clientY;
+        box.style.left = startX + 'px'; box.style.top = startY + 'px';
+        box.style.width = '0px'; box.style.height = '0px'; box.classList.remove('hidden');
+        document.querySelectorAll('.desktop-icon').forEach(el => el.classList.remove('selected'));
+        document.querySelectorAll('.drag-shield').forEach(s => s.style.display = 'block');
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if(!isSelecting) return;
+        const currentX = e.clientX, currentY = e.clientY;
+        const x = Math.min(startX, currentX), y = Math.min(startY, currentY);
+        const w = Math.abs(currentX - startX), h = Math.abs(currentY - startY);
+        box.style.left = x + 'px'; box.style.top = y + 'px'; box.style.width = w + 'px'; box.style.height = h + 'px';
+        document.querySelectorAll('.desktop-icon').forEach(icon => {
+            const rect = icon.getBoundingClientRect();
+            if(rect.left < x + w && rect.right > x && rect.top < y + h && rect.bottom > y) icon.classList.add('selected');
+            else icon.classList.remove('selected');
+        });
+    });
+
+    window.addEventListener('mouseup', () => {
+        if(isSelecting) {
+            isSelecting = false; box.classList.add('hidden');
+            document.querySelectorAll('.drag-shield').forEach(s => s.style.display = 'none');
+        }
+    });
+}
+
+function getAppIconHTML(app, isSmall = false) {
+    const fallbackClass = isSmall ? 'icon-placeholder-small' : 'icon-placeholder';
+    if (app.icon) {
+        if (app.icon.length <= 2) return `<div class="${fallbackClass}" style="background: transparent; font-size: ${isSmall ? '18px' : '36px'}; box-shadow: none;">${app.icon}</div>`;
+        return `<img src="${app.icon}" class="${fallbackClass}" style="background: transparent; box-shadow: none; object-fit: contain;">`;
+    }
+    const pathParts = app.path.split('/'); const baseName = pathParts.pop().replace('.html', ''); const folderPath = pathParts.join('/'); 
+    return `<img src="${folderPath}/icons/${baseName}.png" class="${fallbackClass}" style="background:transparent; box-shadow:none; object-fit:contain;" onerror="this.onerror=null; this.src='${folderPath}/icons/${baseName}.jpg'; this.onerror=function(){ const d = document.createElement('div'); d.className='${fallbackClass}'; d.innerText='${app.name.charAt(0)}'; this.parentNode.replaceChild(d, this); }">`;
+}
+
+function openFile(file) {
+    const ext = file.name.split('.').pop().toLowerCase();
+    if(ext === 'html') openWindow(file.name.split('/').pop(), null, `<iframe srcdoc="${file.content.replace(/"/g, '&quot;')}"></iframe>`);
+    else if(ext === 'txt') openWindow(file.name.split('/').pop(), null, `<textarea style="width:100%;height:100%;resize:none;padding:15px;box-sizing:border-box;background:#1e1e1e;color:#fff;border:none;outline:none;" readonly>${file.content}</textarea>`);
+    else if(ext === 'png' || ext === 'jpg' || ext === 'jpeg' || ext === 'gif') openWindow(file.name.split('/').pop(), null, `<div style="background:#111;height:100%;display:flex;align-items:center;justify-content:center;"><img src="${file.content}" style="max-width:100%;max-height:100%;"></div>`);
+    else if(ext === 'mp4' || ext === 'webm') openWindow(file.name.split('/').pop(), null, `<div style="background:#000;height:100%;display:flex;align-items:center;justify-content:center;"><video src="${file.content}" controls autoplay style="width:100%;height:100%;outline:none;"></video></div>`);
+    else if(ext === 'mp3' || ext === 'wav') openWindow(file.name.split('/').pop(), null, `<div style="background:#111;height:100%;display:flex;align-items:center;justify-content:center; flex-direction:column; gap:20px;"><h2>🎵 ${file.name.split('/').pop()}</h2><audio src="${file.content}" controls autoplay style="width:80%;outline:none;"></audio></div>`);
+    else window.osAlert('Error', 'Filetype not supported');
+}
+
+// --------------------------------------------------------
+// ACTION CENTER & MENUS
+// --------------------------------------------------------
+function toggleActionCenter() { document.getElementById('action-center').classList.toggle('hidden'); }
+
+function toggleTheme() {
+    const light = document.body.classList.toggle('light-mode');
+    document.documentElement.style.setProperty('--accent', light ? '#005A9E' : '#0078D4');
+}
+
+function adjustVolume(amt) { 
+    volumeLevel += amt; if(volumeLevel > 100) volumeLevel = 100; if(volumeLevel < 0) volumeLevel = 0;
+    document.getElementById('vol-level').innerText = volumeLevel + '%';
+}
+
+function setWallpaper() {
+    const url = document.getElementById('wallpaper-input').value;
+    if (url) { document.body.style.backgroundImage = `url('${url}')`; localStorage.setItem('wallpaper', url); showNotification('Personalization', 'Wallpaper updated successfully.'); }
+    document.getElementById('personalize-dialog').classList.add('hidden');
+}
+
+let ctxTarget = null;
 function showContextMenu(e, type, data) {
     e.preventDefault(); e.stopPropagation(); ctxTarget = { type, data };
     const menu = document.getElementById('context-menu');
     menu.style.left = e.clientX + 'px'; menu.style.top = e.clientY + 'px'; menu.classList.remove('hidden');
+
     document.getElementById('ctx-open').style.display = type === 'desktop' ? 'none' : 'block';
     document.getElementById('ctx-delete').style.display = (type === 'desktop' || (type === 'app' && data.preinstalled)) ? 'none' : 'block';
+    document.getElementById('ctx-download').style.display = type === 'file' ? 'block' : 'none';
     document.getElementById('ctx-personalize').style.display = type === 'desktop' ? 'block' : 'none';
     document.getElementById('ctx-new-text').style.display = type === 'desktop' ? 'block' : 'none';
     document.getElementById('ctx-new-folder').style.display = type === 'desktop' ? 'block' : 'none';
 }
-hideContextMenu = () => document.getElementById('context-menu').classList.add('hidden');
+
+function hideContextMenu() { document.getElementById('context-menu').classList.add('hidden'); }
+
+document.getElementById('ctx-open').onclick = () => { if(ctxTarget.type === 'app') openWindow(ctxTarget.data, ctxTarget.data.path); if(ctxTarget.type === 'file') openFile(ctxTarget.data); };
+document.getElementById('ctx-delete').onclick = async () => {
+    if(ctxTarget.type === 'app' && !ctxTarget.data.preinstalled) {
+        installedApps = installedApps.filter(id => id !== ctxTarget.data.id); localStorage.setItem('installedApps', JSON.stringify(installedApps));
+        renderDesktop(); renderAppStore(); renderTaskbar();
+    } else if (ctxTarget.type === 'file') { 
+        let del = await window.osConfirm("Delete File", "Are you sure you want to delete this file?");
+        if(del) VFS.deleteFile(ctxTarget.data.name); 
+    }
+};
+document.getElementById('ctx-download').onclick = () => {
+    if(ctxTarget.type === 'file') {
+        const isDataURL = ctxTarget.data.content.startsWith('data:');
+        let url = isDataURL ? ctxTarget.data.content : URL.createObjectURL(new Blob([ctxTarget.data.content]));
+        let a = document.createElement('a'); a.href = url; a.download = ctxTarget.data.name.split('/').pop(); a.click();
+    }
+};
+document.getElementById('ctx-personalize').onclick = () => { document.getElementById('personalize-dialog').classList.remove('hidden'); document.getElementById('wallpaper-input').focus(); };
 
 document.getElementById('ctx-new-text').onclick = async () => {
     let name = await window.osPrompt("New File", "Enter filename (.txt):");
-    if(name) {
-        await VFS.saveFile(name, 'text/plain', 'New Text Document');
-        renderDesktop(); showNotification('Created', name + ' created on desktop.');
-    }
+    if(name) { await VFS.saveFile(name, 'text/plain', 'New Text Document'); renderDesktop(); showNotification('Created', name + ' created on desktop.'); }
 };
+
 document.getElementById('ctx-new-folder').onclick = async () => {
     let name = await window.osPrompt("New Folder", "Enter folder name:");
     if(name) { await VFS.saveFile(name, 'folder', ''); renderDesktop(); showNotification('Created', name + ' created.'); }
 };
-document.getElementById('ctx-download').onclick = () => { /* ... (add back download logic) ... */ }; // Include logic from previous version
 
-// Action Center & Volume
-toggleActionCenter = () => document.getElementById('action-center').classList.toggle('hidden');
-toggleTheme = () => {
-    const light = document.body.classList.toggle('light-mode');
-    // You would need CSS adjustments for Light Mode colors, but for now lets just swap accent
-    document.documentElement.style.setProperty('--accent', light ? '#005A9E' : '#0078D4');
-};
-adjustVolume = (amt) => { 
-    volumeLevel += amt; if(volumeLevel > 100) volumeLevel = 100; if(volumeLevel < 0) volumeLevel = 0;
-    document.getElementById('vol-level').innerText = volumeLevel + '%';
-};
-
-// Background Scanners & Notifications (Keep previous versions of these)
-// ...
-checkForGitHubUpdates() { /* ... Previous Logic ... */ };
-silentUpdateAppList() { /* ... Previous Logic ... */ };
-getAppIconHTML() { /* ... Previous Logic ... */ };
-renderTaskbar() { /* ... Previous Logic ... */ };
-bringToFront() { /* ... Previous Logic ... */ };
-renderAppStore() { /* ... Previous Logic ... */ };
-openFile() { /* ... Previous Logic ... */ };
-setWallpaper() { /* ... Previous Logic ... */ };
-initDragSelection() { /* ... Previous Logic ... */ };
-showNotification() { /* ... Previous Logic ... */ };
-
-window.onload = checkAuth; // Start at Lock Screen
+window.onload = checkAuth; // OS Starts at the Lock Screen
