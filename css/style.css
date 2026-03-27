@@ -67,14 +67,12 @@
 .ac-calendar { font-size: 12px; color: #aaa; text-align: center; margin-top: 5px; border-top: 1px solid var(--mica-border); padding-top: 10px; }
 
 /* LOCK SCREEN */
-#lock-screen { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop') center center/cover; z-index: 99999; display: flex; justify-content: center; align-items: center; flex-direction: column; transition: filter 0.5s; }
+#lock-screen { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop') center center/cover; z-index: 99999; display: flex; justify-content: center; align-items: center; flex-direction: column; transition: filter 0.5s, opacity 0.5s; }
 #lock-screen.hidden { filter: blur(20px); pointer-events: none; opacity: 0; }
-.lock-content { background: rgba(30,30,30,0.8); backdrop-filter: blur(30px); padding: 40px; border-radius: 12px; text-align: center; border: 1px solid rgba(255,255,255,0.1); }
-.lock-content h2 { margin-top: 0; font-size: 24px; }
-.lock-content input { width: 100%; padding: 12px; margin: 10px 0; background: rgba(0,0,0,0.3); border: 1px solid #444; border-radius: 4px; color: white; outline: none; }
-.lock-content button { width: 100%; padding: 12px; background: var(--accent); color: white; border: none; border-radius: 4px; margin-top: 10px; cursor: pointer; font-weight: bold; }
+.lock-content { background: rgba(30,30,30,0.8); backdrop-filter: blur(30px); padding: 40px; border-radius: 12px; text-align: center; border: 1px solid rgba(255,255,255,0.1); width: 350px; box-shadow: 0 20px 50px rgba(0,0,0,0.5);}
+.lock-content h2 { margin-top: 0; font-size: 24px; margin-bottom: 5px;}
+.lock-content input { width: 100%; padding: 12px; margin: 8px 0; background: rgba(0,0,0,0.3); border: 1px solid #444; border-radius: 4px; color: white; outline: none; box-sizing: border-box; }
+.lock-content input:focus { border-color: var(--accent); }
+.lock-content button { width: 100%; padding: 12px; background: var(--accent); color: white; border: none; border-radius: 4px; margin-top: 15px; cursor: pointer; font-weight: bold; transition: 0.2s;}
 .lock-content button:hover { opacity: 0.9; }
-
-::-webkit-scrollbar { width: 10px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #444; border-radius: 5px; border: 2px solid var(--bg-solid); }
+.toggle-link { font-size: 12px; color: var(--accent); cursor: pointer; text-decoration: underline; margin-top: 15px; display: inline-block;}

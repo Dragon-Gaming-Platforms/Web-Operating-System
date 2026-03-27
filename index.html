@@ -7,15 +7,21 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <!-- 1. Lock Screen / Login -->
+         <!-- 1. Lock Screen / Login -->
     <div id="lock-screen">
         <div class="lock-bg"></div>
         <div class="lock-content">
-            <h2>Welcome</h2>
-            <input type="text" id="login-email" placeholder="Email Address">
+            <h2 id="auth-title">Welcome Back</h2>
+            <p style="font-size: 12px; color: #aaa; margin-bottom: 20px;">Connect to your OS Server.</p>
+            
+            <input type="text" id="backend-url" placeholder="Google Backend URL (Do this once)">
+            <input type="email" id="login-email" placeholder="Email Address">
             <input type="password" id="login-pass" placeholder="Password">
-            <button onclick="tryLogin()">Unlock</button>
-            <p id="login-error" style="color:#ff6b6b; display:none;">Authentication Failed</p>
+            
+            <button id="auth-btn" onclick="submitAuth()">Unlock</button>
+            <div class="toggle-link" onclick="toggleAuthMode()" id="auth-toggle">Need an account? Sign up here</div>
+            
+            <p id="login-error" style="color:#ff6b6b; display:none; margin-top: 15px; font-size: 13px;"></p>
         </div>
     </div>
 

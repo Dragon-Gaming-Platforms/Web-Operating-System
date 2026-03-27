@@ -15,50 +15,97 @@ document.addEventListener('click', (e) => {
 });
 
 // --------------------------------------------------------
-// GLOBAL AUTH SYSTEM
+// GLOBAL AUTH SYSTEM (Single Sign-On)
 // --------------------------------------------------------
+let isLoginMode = true;
+
+function toggleAuthMode() {
+    isLoginMode = !isLoginMode;
+    document.getElementById('auth-title').innerText = isLoginMode ? "Welcome Back" : "Create Account";
+    document.getElementById('auth-btn').innerText = isLoginMode ? "Unlock" : "Sign Up";
+    document.getElementById('auth-toggle').innerText = isLoginMode ? "Need an account? Sign up here" : "Already have an account? Login here";
+    document.getElementById('login-error').style.display = 'none';
+}
+
+function showAuthError(msg) {
+    const err = document.getElementById('login-error');
+    err.innerText = msg;
+    err.style.display = 'block';
+}
+
 async function checkAuth() {
     const email = localStorage.getItem('os_email');
     const pass = localStorage.getItem('os_password');
-    if(email && pass) {
-        // Verify against backend silently
-        const res = await fetch(localStorage.getItem('chat_backend_url') || '', {
-             method: 'POST', headers: {'Content-Type': 'text/plain'}, body: JSON.stringify({action:'login', email:email, password:pass})
-        });
-        const data = await res.json();
-        if(data.success) {
+    const url = localStorage.getItem('chat_backend_url'); // Shared with Chat app
+    
+    if(url) document.getElementById('backend-url').value = url;
+
+    if(email && pass && url) {
+        try {
+            const res = await fetch(url, {
+                 method: 'POST', headers: {'Content-Type': 'text/plain'}, body: JSON.stringify({action:'login', email:email, password:pass})
+            });
+            const data = await res.json();
+            if(data.success) {
+                unlockOS(email);
+            } else {
+                localStorage.removeItem('os_password');
+                document.getElementById('lock-screen').classList.remove('hidden');
+            }
+        } catch (e) {
+            // If offline or network error, let them in based on local cache
             unlockOS(email);
-        } else {
-            localStorage.removeItem('os_email');
-            localStorage.removeItem('os_password');
-            document.getElementById('lock-screen').classList.remove('hidden');
         }
     } else {
         document.getElementById('lock-screen').classList.remove('hidden');
     }
 }
 
-async function tryLogin() {
+async function submitAuth() {
+    const url = document.getElementById('backend-url').value.trim();
     const email = document.getElementById('login-email').value.trim();
     const pass = document.getElementById('login-pass').value.trim();
-    const url = localStorage.getItem('chat_backend_url');
+    const btn = document.getElementById('auth-btn');
     
-    if(!url) { alert("Please configure Backend URL in Chat App first."); return; }
+    if(!url || !email || !pass) return showAuthError("Please fill out all fields.");
+    
+    btn.innerText = "Connecting...";
+    document.getElementById('login-error').style.display = 'none';
 
     try {
-        const res = await fetch(url, { method: 'POST', headers: {'Content-Type': 'text/plain'}, body: JSON.stringify({action:'login', email:email, password:pass}) });
+        const payload = { action: isLoginMode ? 'login' : 'register', email: email, password: pass };
+        const res = await fetch(url, { method: 'POST', headers: {'Content-Type': 'text/plain'}, body: JSON.stringify(payload) });
         const data = await res.json();
         
         if(data.success) {
+            // Save universally for OS and Apps
+            localStorage.setItem('chat_backend_url', url);
             localStorage.setItem('os_email', email);
             localStorage.setItem('os_password', pass);
+            // Sync with Messages App credentials
+            localStorage.setItem('chat_email', email);
+            localStorage.setItem('chat_password', pass);
+            
             unlockOS(email);
         } else {
-            document.getElementById('login-error').style.display = 'block';
+            showAuthError(data.error || "Authentication Failed");
+            btn.innerText = isLoginMode ? "Unlock" : "Sign Up";
         }
     } catch(e) {
-        alert("Connection Error");
+        showAuthError("Connection Error. Check your Backend URL.");
+        btn.innerText = isLoginMode ? "Unlock" : "Sign Up";
     }
+}
+
+function unlockOS(email) {
+    const ls = document.getElementById('lock-screen');
+    ls.style.filter = "blur(20px)";
+    ls.style.opacity = "0";
+    setTimeout(() => { 
+        ls.classList.add('hidden'); 
+        initOS(email); 
+    }, 500);
+}
 }
 
 function unlockOS(email) {
