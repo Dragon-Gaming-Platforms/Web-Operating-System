@@ -67,6 +67,7 @@
 
     <script>
         document.documentElement.style.setProperty('--accent', window.parent.localStorage.getItem('os_theme') || '#0078D4');
+        const OS = window.parent;
         
         const BACKEND_URL = localStorage.getItem('chat_backend_url');
         const EMAIL = localStorage.getItem('os_email');
@@ -78,12 +79,10 @@
         const sendBtn = document.getElementById('send-btn');
         const typing = document.getElementById('typing-indicator');
 
-        // Global Chat State
         let chats = {};
         let currentChatId = null;
-        const STORAGE_KEY = `ai_chats_${EMAIL}`; // Unique key per user
+        const STORAGE_KEY = `ai_chats_${EMAIL}`; 
 
-        // Security Check
         if (!BACKEND_URL || !EMAIL || !PASSWORD) {
             document.getElementById('auth-warning').style.display = 'flex';
             input.disabled = true; sendBtn.disabled = true;
@@ -97,10 +96,9 @@
             if (raw) {
                 chats = JSON.parse(raw);
             } else {
-                createNewChat(); // Make first chat if empty
+                createNewChat(); 
             }
             
-            // Auto-select latest chat
             if (!currentChatId && Object.keys(chats).length > 0) {
                 currentChatId = Object.keys(chats)[Object.keys(chats).length - 1];
             }
@@ -133,9 +131,19 @@
             renderChat();
         }
 
-        function deleteChat(e, id) {
-            e.stopPropagation();
-            if(confirm("Delete this conversation?")) {
+        // UPDATED: Now uses the custom OS Confirm Dialog instead of the blocked browser prompt!
+        async function deleteChat(e, id) {
+            e.stopPropagation(); // Prevents clicking the chat underneath the X button
+            
+            let conf = false;
+            // Check if OS Modal exists, otherwise fallback to standard confirm (for testing)
+            if (OS && OS.osConfirm) {
+                conf = await OS.osConfirm("Delete Conversation", "Are you sure you want to delete this chat?");
+            } else {
+                conf = confirm("Delete this conversation?");
+            }
+
+            if(conf) {
                 delete chats[id];
                 if(currentChatId === id) {
                     const keys = Object.keys(chats);
@@ -149,7 +157,6 @@
         // --- RENDER LOGIC ---
         function renderSidebar() {
             chatList.innerHTML = '';
-            // Render in reverse order (newest first)
             Object.keys(chats).reverse().forEach(id => {
                 const c = chats[id];
                 const div = document.createElement('div');
@@ -177,7 +184,7 @@
             if(!currentChatId || !chats[currentChatId]) return;
 
             const msgs = chats[currentChatId].messages;
-            if (msgs.length === 1) { // Only system prompt exists
+            if (msgs.length === 1) { 
                 chatWindow.innerHTML = `
                     <div class="message ai-msg">
                         👋 Hello, ${EMAIL.split('@')[0]}!<br><br>
@@ -188,7 +195,6 @@
                 return;
             }
 
-            // Skip the system prompt (index 0) when rendering
             for (let i = 1; i < msgs.length; i++) {
                 const m = msgs[i];
                 if (m.isImageHtml) {
@@ -233,7 +239,6 @@
             const text = input.value.trim();
             if (!text || !currentChatId) return;
 
-            // Auto-title generation for new chats
             if (chats[currentChatId].messages.length === 1) {
                 chats[currentChatId].title = text.substring(0, 25) + (text.length > 25 ? "..." : "");
                 saveData();
@@ -244,15 +249,13 @@
             input.disabled = true; sendBtn.disabled = true;
             typing.style.display = 'block';
 
-            // 1. Handle Local Image Command
             if (text.toLowerCase().startsWith('/image ')) {
                 const prompt = text.replace('/image ', '').trim();
                 const seed = Math.floor(Math.random() * 100000); 
                 const imgUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?seed=${seed}&width=512&height=512&nologo=true`;
                 const imgHTML = `Image for "${prompt}": <br><img src="${imgUrl}" onload="document.getElementById('chat-window').scrollTop = document.getElementById('chat-window').scrollHeight">`;
                 
-                // Save image locally but flag it so we don't send HTML to the LLM backend later
-                chats[currentChatId].messages.push({ role: "user", content: text, isImageHtml: false }); // Store original request
+                chats[currentChatId].messages.push({ role: "user", content: text, isImageHtml: false }); 
                 chats[currentChatId].messages.push({ role: "assistant", content: imgHTML, isImageHtml: true }); 
                 
                 saveData();
@@ -260,11 +263,9 @@
                 resetInput(); return;
             }
 
-            // 2. Normal AI Text Request
             chats[currentChatId].messages.push({ role: "user", content: text });
             saveData();
 
-            // Filter out images to prevent confusing the LLM context, and only send last 5 messages to keep URL short
             let cleanContext = chats[currentChatId].messages.filter(m => !m.isImageHtml);
             let contextToSend = [cleanContext[0]].concat(cleanContext.slice(-5)); 
 
@@ -278,7 +279,7 @@
 
                 if (data.error) {
                     appendMessage("❌ Error: " + data.error, 'ai-msg', false, true);
-                    chats[currentChatId].messages.pop(); // Remove user message if failed
+                    chats[currentChatId].messages.pop(); 
                 } else {
                     const aiText = data.reply;
                     chats[currentChatId].messages.push({ role: "assistant", content: aiText });
@@ -287,7 +288,7 @@
                 }
             } catch (err) {
                 appendMessage("❌ Network Error connecting to Backend.", 'ai-msg', false, true);
-                chats[currentChatId].messages.pop(); // Remove user message if failed
+                chats[currentChatId].messages.pop(); 
             }
 
             resetInput();
