@@ -630,4 +630,4 @@ document.getElementById('ctx-new-folder').onclick = async () => {
     if(name) { await VFS.saveFile(name, 'folder', ''); renderDesktop(); showNotification('Created', name + ' created.'); }
 };
 
-window.onload = checkAuth; // OS Starts at the Lock Screen
+window.onload = checkAuth; // OS Starts at the LockScreen
