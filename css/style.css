@@ -12,22 +12,120 @@
 body { margin: 0; overflow: hidden; background: url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop') no-repeat center center fixed; background-size: cover; height: 100vh; display: flex; flex-direction: column; transition: background 0.3s; }
 
 /* -------------------------------------- */
-/* BOOT & LOCK SCREENS                    */
+/* BOOT SCREEN                            */
 /* -------------------------------------- */
 #boot-screen { position: absolute; top:0; left:0; width: 100%; height: 100%; background: #000; z-index: 99999; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.5s ease; }
 #boot-screen.hidden { opacity: 0; pointer-events: none; }
 .boot-spinner { width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.1); border-left-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-#lock-screen { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop') center center/cover; z-index: 99998; display: flex; justify-content: center; align-items: center; flex-direction: column; transition: filter 0.5s, opacity 0.5s; }
-#lock-screen.hidden { filter: blur(20px); pointer-events: none; opacity: 0; }
-.lock-content { background: rgba(30,30,30,0.8); backdrop-filter: blur(30px); padding: 40px; border-radius: 12px; text-align: center; border: 1px solid rgba(255,255,255,0.1); width: 350px; box-shadow: 0 20px 50px rgba(0,0,0,0.5);}
-.lock-content h2 { margin-top: 0; font-size: 24px; margin-bottom: 5px;}
-.lock-content input { width: 100%; padding: 12px; margin: 8px 0; background: rgba(0,0,0,0.3); border: 1px solid #444; border-radius: 4px; color: white; outline: none; box-sizing: border-box; }
-.lock-content input:focus { border-color: var(--accent); }
-.lock-content button { width: 100%; padding: 12px; background: var(--accent); color: white; border: none; border-radius: 4px; margin-top: 15px; cursor: pointer; font-weight: bold; transition: 0.2s;}
-.lock-content button:hover { opacity: 0.9; }
-.toggle-link { font-size: 12px; color: var(--accent); cursor: pointer; text-decoration: underline; margin-top: 15px; display: inline-block;}
+/* -------------------------------------- */
+/* DRAGON GAMING LOCK SCREEN              */
+/* -------------------------------------- */
+#lock-screen {
+    position: fixed;
+    inset: 0;
+    /* Looks for the image in your assets/images folder */
+    background: url('../assets/images/dragon-login.png') center center / cover no-repeat #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    z-index: 99998;
+    transition: filter 0.5s, opacity 0.5s;
+}
+
+#lock-screen.hidden {
+    filter: blur(20px);
+    pointer-events: none;
+    opacity: 0;
+}
+
+.lock-content {
+    width: 400px;
+    padding: 40px;
+    border-radius: 16px;
+    background: rgba(10, 0, 0, 0.75);
+    backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 0, 0, 0.25);
+    box-shadow: 0 0 40px rgba(255, 0, 0, 0.2), 0 0 80px rgba(255, 0, 0, 0.1);
+    text-align: center;
+}
+
+.lock-content h2 {
+    font-size: 28px;
+    margin-top: 0;
+    margin-bottom: 5px;
+    letter-spacing: 2px;
+    color: #ff2e2e;
+    text-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
+    text-transform: uppercase;
+}
+
+.lock-content p {
+    color: #aaa;
+    margin-bottom: 25px;
+    font-size: 12px;
+}
+
+.lock-content input {
+    width: 100%;
+    padding: 14px;
+    margin: 8px 0;
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(255, 0, 0, 0.3);
+    border-radius: 6px;
+    color: white;
+    outline: none;
+    box-sizing: border-box;
+    transition: 0.2s;
+}
+
+.lock-content input:focus {
+    border-color: #ff2e2e;
+    box-shadow: 0 0 10px rgba(255, 0, 0, 0.4);
+}
+
+.lock-content button {
+    width: 100%;
+    padding: 14px;
+    margin-top: 15px;
+    background: linear-gradient(90deg, #8a0000, #ff1a1a);
+    border: none;
+    border-radius: 6px;
+    color: white;
+    font-weight: bold;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.lock-content button:hover {
+    box-shadow: 0 0 20px rgba(255, 0, 0, 0.6);
+    transform: translateY(-2px);
+}
+
+.toggle-link {
+    display: inline-block;
+    margin-top: 20px;
+    font-size: 13px;
+    color: #ff4d4d;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.toggle-link:hover {
+    color: #ffffff;
+    text-shadow: 0 0 10px rgba(255,255,255,0.5);
+}
+
+#login-error {
+    margin-top: 15px;
+    color: #ff4d4d;
+    font-weight: bold;
+    text-shadow: 0 0 5px rgba(255,0,0,0.5);
+}
 
 /* -------------------------------------- */
 /* DESKTOP & TASKBAR                      */
@@ -130,7 +228,7 @@ body { margin: 0; overflow: hidden; background: url('https://images.unsplash.com
 .context-item:hover { background: var(--hover); }
 
 #personalize-dialog { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--bg-solid); padding: 20px; border-radius: 8px; border: 1px solid var(--mica-border); box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 20000; width: 350px;}
-#personalize-dialog h3 { margin-top: 0; font-size: 16px; margin-bottom: 15px;}
+#personalize-dialog h3 { margin: 0 0 15px 0; font-size: 16px;}
 #personalize-dialog input { width: 100%; padding: 10px; background: #111; border: 1px solid #444; border-radius: 4px; color: white; outline: none; box-sizing: border-box; margin-bottom: 15px;}
 #personalize-dialog input:focus { border-color: var(--accent); }
 #personalize-dialog button { padding: 6px 15px; border-radius: 4px; border: none; cursor: pointer; background: rgba(255,255,255,0.1); color: white; }
