@@ -131,32 +131,31 @@
             renderChat();
         }
 
-        // UPDATED: Now uses the custom OS Confirm Dialog instead of the blocked browser prompt!
+        // UPDATED: Now correctly hooks into the parent OS's modal system
         async function deleteChat(e, id) {
-    e.stopPropagation();
+            e.stopPropagation();
 
-    const confirmed = await localModal(
-        'confirm',
-        'Delete Conversation',
-        'Are you sure you want to permanently delete this conversation?'
-    );
+            const confirmed = await OS.osConfirm(
+                'Delete Conversation',
+                'Are you sure you want to permanently delete this conversation?'
+            );
 
-    if (confirmed) {
-        delete chats[id];
+            if (confirmed) {
+                delete chats[id];
 
-        if (currentChatId === id) {
-            const keys = Object.keys(chats);
-            currentChatId = keys.length ? keys[keys.length - 1] : null;
+                if (currentChatId === id) {
+                    const keys = Object.keys(chats);
+                    currentChatId = keys.length ? keys[keys.length - 1] : null;
+                }
+
+                if (!Object.keys(chats).length) {
+                    createNewChat();
+                } else {
+                    saveData();
+                    renderChat();
+                }
+            }
         }
-
-        if (!Object.keys(chats).length) {
-            createNewChat();
-        } else {
-            saveData();
-            renderChat();
-        }
-    }
-}
 
         // --- RENDER LOGIC ---
         function renderSidebar() {
