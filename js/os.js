@@ -38,19 +38,32 @@ async function checkAuth() {
     const pass = localStorage.getItem('os_password');
     const url = localStorage.getItem('chat_backend_url');
     
-    // Always populate the URL box if we have one saved
-    if(url) document.getElementById('backend-url').value = url;
+    const urlInput = document.getElementById('backend-url');
+    if(url) urlInput.value = url;
+
+    // AUTO-SAVE: Saves the URL the millisecond you type or paste it
+    urlInput.addEventListener('input', (e) => {
+        localStorage.setItem('chat_backend_url', e.target.value.trim());
+    });
 
     if(email && pass && url) {
         try {
             const res = await fetch(url, {
                  method: 'POST', headers: {'Content-Type': 'text/plain'}, body: JSON.stringify({action:'login', email:email, password:pass})
             });
-            const data = await res.json();
-            if(data.success) {
-                unlockOS(email);
-            } else {
-                // If password changed or wrong, clear password but KEEP the URL
+            // Grab raw text first to catch Google HTML errors
+            const textRaw = await res.text();
+            try {
+                const data = JSON.parse(textRaw);
+                if(data.success) {
+                    unlockOS(email);
+                } else {
+                    localStorage.removeItem('os_password');
+                    document.getElementById('lock-screen').classList.remove('hidden');
+                }
+            } catch(e) {
+                // If Google returns HTML instead of JSON, the backend deployment is broken
+                console.error("Backend Error: Google returned HTML. Deployment settings are incorrect.");
                 localStorage.removeItem('os_password');
                 document.getElementById('lock-screen').classList.remove('hidden');
             }
@@ -70,31 +83,46 @@ async function submitAuth() {
     
     if(!url || !email || !pass) return showAuthError("Please fill out all fields.");
     
-    // SAVE URL IMMEDIATELY - Even if the login fails, you won't have to paste it again!
+    // Force save URL again just to be 100% sure
     localStorage.setItem('chat_backend_url', url);
     
+    // DIAGNOSTIC 1: Is the URL actually a Web App?
+    if(!url.endsWith('/exec')) {
+        return showAuthError("Invalid URL. It must end with '/exec'.");
+    }
+
     btn.innerText = "Connecting...";
     document.getElementById('login-error').style.display = 'none';
 
     try {
         const payload = { action: isLoginMode ? 'login' : 'register', email: email, password: pass };
         const res = await fetch(url, { method: 'POST', headers: {'Content-Type': 'text/plain;charset=utf-8'}, body: JSON.stringify(payload) });
-        const data = await res.json();
+        
+        // Grab raw text to prevent silent JSON crashes
+        const textRaw = await res.text();
+        let data;
+        try {
+            data = JSON.parse(textRaw);
+        } catch(err) {
+            // DIAGNOSTIC 2: The Google Script is returning a Google Login page instead of data
+            showAuthError("Google Server Error. Make sure 'Execute as' is set to 'Me'!");
+            btn.innerText = isLoginMode ? "Unlock" : "Sign Up";
+            return;
+        }
         
         if(data.success) {
-            // Save universally for OS and Apps
             localStorage.setItem('os_email', email);
             localStorage.setItem('os_password', pass);
             localStorage.setItem('chat_email', email);
             localStorage.setItem('chat_password', pass);
-            
             unlockOS(email);
         } else {
             showAuthError(data.error || "Authentication Failed");
             btn.innerText = isLoginMode ? "Unlock" : "Sign Up";
         }
     } catch(e) {
-        showAuthError("Connection Error. Is the URL correct?");
+        // DIAGNOSTIC 3: Network or CORS block
+        showAuthError("Network Error. Check your internet or URL.");
         btn.innerText = isLoginMode ? "Unlock" : "Sign Up";
     }
 }
