@@ -604,4 +604,13 @@ document.getElementById('ctx-new-folder').onclick = async () => {
     if(name) { await VFS.saveFile(name, 'folder', ''); renderDesktop(); showNotification('Created', name + ' created.'); }
 };
 
-window.onload = checkAuth; // OS Starts at the LockScreen
+// Run instantly as soon as the HTML is ready, do not wait for images to load!
+document.addEventListener('DOMContentLoaded', () => {
+    checkAuth();
+});
+
+// Failsafe: Force text boxes to populate immediately just in case
+const savedUrl = localStorage.getItem('chat_backend_url');
+const savedEmail = localStorage.getItem('os_email');
+if (savedUrl) document.getElementById('backend-url').value = savedUrl;
+if (savedEmail) document.getElementById('login-email').value = savedEmail;
