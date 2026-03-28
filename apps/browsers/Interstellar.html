@@ -10,11 +10,3 @@
   allowfullscreen
   allow="autoplay; picture-in-picture; microphone; camera"
 ></iframe>
-// Put this inside your custom Search Engine HTML file:
-window.addEventListener('message', function(e) {
-    if (e.data && e.data.action === 'search') {
-        let theUserSearch = e.data.query;
-        // Do whatever you want with their search query here!
-        // e.g. document.getElementById('results').innerText = "Searching for: " + theUserSearch;
-    }
-});
