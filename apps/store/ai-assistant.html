@@ -133,26 +133,30 @@
 
         // UPDATED: Now uses the custom OS Confirm Dialog instead of the blocked browser prompt!
         async function deleteChat(e, id) {
-            e.stopPropagation(); // Prevents clicking the chat underneath the X button
-            
-            let conf = false;
-            // Check if OS Modal exists, otherwise fallback to standard confirm (for testing)
-            if (OS && OS.osConfirm) {
-                conf = await OS.osConfirm("Delete Conversation", "Are you sure you want to delete this chat?");
-            } else {
-                conf = confirm("Delete this conversation?");
-            }
+    e.stopPropagation();
 
-            if(conf) {
-                delete chats[id];
-                if(currentChatId === id) {
-                    const keys = Object.keys(chats);
-                    currentChatId = keys.length > 0 ? keys[keys.length - 1] : null;
-                }
-                if(Object.keys(chats).length === 0) createNewChat();
-                else { saveData(); renderChat(); }
-            }
+    const confirmed = await localModal(
+        'confirm',
+        'Delete Conversation',
+        'Are you sure you want to permanently delete this conversation?'
+    );
+
+    if (confirmed) {
+        delete chats[id];
+
+        if (currentChatId === id) {
+            const keys = Object.keys(chats);
+            currentChatId = keys.length ? keys[keys.length - 1] : null;
         }
+
+        if (!Object.keys(chats).length) {
+            createNewChat();
+        } else {
+            saveData();
+            renderChat();
+        }
+    }
+}
 
         // --- RENDER LOGIC ---
         function renderSidebar() {
