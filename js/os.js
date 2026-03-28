@@ -38,60 +38,16 @@ async function checkAuth() {
     const pass = localStorage.getItem('os_password');
     const url = localStorage.getItem('chat_backend_url');
     
-    const urlInput = document.getElementById('backend-url');
-    if(url) urlInput.value = url;
-
-    // AUTO-SAVE: Saves the URL the millisecond you type or paste it
-    urlInput.addEventListener('input', (e) => {
-        localStorage.setItem('chat_backend_url', e.target.value.trim());
-    });
-
-    if(email && pass && url) {
-        try {
-            const res = await fetch(url, {
-                 method: 'POST', headers: {'Content-Type': 'text/plain'}, body: JSON.stringify({action:'login', email:email, password:pass})
-            });
-            // Grab raw text first to catch Google HTML errors
-            const textRaw = await res.text();
-            try {
-                const data = JSON.parse(textRaw);
-                if(data.success) {
-                    unlockOS(email);
-                } else {
-                    localStorage.removeItem('os_password');
-                    document.getElementById('lock-screen').classList.remove('hidden');
-                }
-            } catch(e) {
-                // If Google returns HTML instead of JSON, the backend deployment is broken
-                console.error("Backend Error: Google returned HTML. Deployment settings are incorrect.");
-                localStorage.removeItem('os_password');
-                document.getElementById('lock-screen').classList.remove('hidden');
-            }
-        } catch (e) {
-            unlockOS(email); // Offline fallback
-        }
-    } else {
-        document.getElementById('lock-screen').classList.remove('hidden');
-    }
-}
-
-async function checkAuth() {
-    const email = localStorage.getItem('os_email');
-    const pass = localStorage.getItem('os_password');
-    const url = localStorage.getItem('chat_backend_url');
-    
-    // 1. FIX THE VISUAL BUG: Always populate the inputs immediately so you see your saved data
     if (url) document.getElementById('backend-url').value = url;
     if (email) document.getElementById('login-email').value = email;
 
     if (email && pass && url) {
         try {
-            // 2. THE GOOGLE BYPASS: No headers! This skips the strict CORS Preflight check.
-            const res = await fetch(url, {
-                 method: 'POST', 
-                 body: JSON.stringify({action:'login', email:email, password:pass})
-            });
+            // THE BYPASS: Sending the auth as a URL GET request
+            const getUrl = `${url}?action=login&email=${encodeURIComponent(email)}&password=${encodeURIComponent(pass)}`;
+            const res = await fetch(getUrl);
             const data = await res.json();
+            
             if (data.success) {
                 unlockOS(email);
             } else {
@@ -99,7 +55,6 @@ async function checkAuth() {
                 document.getElementById('lock-screen').classList.remove('hidden');
             }
         } catch (e) {
-            console.error("Auto-login silent fail. Showing lock screen.");
             document.getElementById('lock-screen').classList.remove('hidden');
         }
     } else {
@@ -116,7 +71,6 @@ async function submitAuth() {
     if(!url || !email || !pass) return showAuthError("Please fill out all fields.");
     if(!url.endsWith('/exec')) return showAuthError("URL must end with /exec");
     
-    // Save instantly to memory
     localStorage.setItem('chat_backend_url', url);
     localStorage.setItem('os_email', email);
     
@@ -124,14 +78,12 @@ async function submitAuth() {
     document.getElementById('login-error').style.display = 'none';
 
     try {
-        const payload = { action: isLoginMode ? 'login' : 'register', email: email, password: pass };
+        const actionStr = isLoginMode ? 'login' : 'register';
         
-        // THE GOOGLE BYPASS: No headers! 
-        const res = await fetch(url, { 
-            method: 'POST', 
-            body: JSON.stringify(payload) 
-        });
+        // THE BYPASS: Formatting the data directly into the URL
+        const getUrl = `${url}?action=${actionStr}&email=${encodeURIComponent(email)}&password=${encodeURIComponent(pass)}`;
         
+        const res = await fetch(getUrl);
         const data = await res.json();
         
         if (data.success) {
@@ -144,7 +96,7 @@ async function submitAuth() {
             btn.innerText = isLoginMode ? "Unlock" : "Sign Up";
         }
     } catch(e) {
-        showAuthError("Connection Blocked by Google or Network.");
+        showAuthError("Failed! Did you deploy the New Version in GAS?");
         btn.innerText = isLoginMode ? "Unlock" : "Sign Up";
     }
 }
