@@ -62,30 +62,32 @@ function jsonpRequest(url, payload) {
 }
 
 // 2. CHECK AUTH
-async function checkAuth() {
+function checkAuth() {
     const email = localStorage.getItem('os_email');
     const pass = localStorage.getItem('os_password');
     const url = localStorage.getItem('chat_backend_url');
     
+    // Auto-fill all the fields (including password)
     if (url) document.getElementById('backend-url').value = url;
     if (email) document.getElementById('login-email').value = email;
+    if (pass) document.getElementById('login-pass').value = pass;
 
-    if (email && pass && url) {
-        try {
-            const data = await jsonpRequest(url, { action: 'login', email: email, password: pass });
-            if (data.success) {
-                unlockOS(email);
-            } else {
-                localStorage.removeItem('os_password');
-                document.getElementById('lock-screen').classList.remove('hidden');
-            }
-        } catch (e) {
-            document.getElementById('lock-screen').classList.remove('hidden');
-        }
-    } else {
-        document.getElementById('lock-screen').classList.remove('hidden');
-    }
+    // ALWAYS show the lock screen so the user has to click Unlock
+    document.getElementById('lock-screen').classList.remove('hidden');
 }
+
+// Listen for the "Enter" key on all login fields
+document.addEventListener('DOMContentLoaded', () => {
+    ['backend-url', 'login-email', 'login-pass'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') submitAuth();
+            });
+        }
+    });
+    checkAuth();
+});
 
 // 3. SUBMIT AUTH
 async function submitAuth() {

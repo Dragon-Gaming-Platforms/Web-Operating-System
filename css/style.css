@@ -25,8 +25,8 @@ body { margin: 0; overflow: hidden; background: url('https://images.unsplash.com
 #lock-screen {
     position: fixed;
     inset: 0;
-    /* Looks for the image in your assets/images folder */
-    background: url('../assets/images/dragon-login.png') center center / cover no-repeat #000;
+    /* Changed 'cover' to 'contain' and added a pure black background */
+    background: url('../assets/images/dragon-login.png') center center / contain no-repeat #000;
     display: flex;
     align-items: center;
     justify-content: center;
