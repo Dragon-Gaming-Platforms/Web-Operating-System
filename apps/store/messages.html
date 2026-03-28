@@ -85,8 +85,30 @@
     </div>
 
     <script>
-        document.documentElement.style.setProperty('--accent', window.parent.localStorage.getItem('os_theme') || '#0078D4');
-        const OS = window.parent; 
+        // Dialog logic...
+        function localModal(type, title, message, defaultValue = '') {
+            return new Promise((resolve) => {
+                const dialog = document.getElementById('local-dialog');
+                document.getElementById('dialog-title').innerText = title;
+                document.getElementById('dialog-message').innerText = message;
+                const input = document.getElementById('dialog-input');
+                const btnCancel = document.getElementById('dialog-btn-cancel');
+                const btnOk = document.getElementById('dialog-btn-ok');
+                
+                if(type === 'prompt') { input.style.display = 'block'; input.value = defaultValue; btnCancel.style.display = 'block'; } 
+                else if(type === 'confirm') { input.style.display = 'none'; btnCancel.style.display = 'block'; } 
+                else { input.style.display = 'none'; btnCancel.style.display = 'none'; }
+                
+                dialog.classList.remove('hidden');
+                if(type === 'prompt') input.focus();
+                
+                btnOk.onclick = () => { dialog.classList.add('hidden'); resolve(type === 'prompt' ? input.value : true); };
+                btnCancel.onclick = () => { dialog.classList.add('hidden'); resolve(type === 'prompt' ? null : false); };
+            });
+        }
+        const localAlert = (t, m) => localModal('alert', t, m);
+        const localConfirm = (t, m) => localModal('confirm', t, m);
+        const localPrompt = (t, m, d) => localModal('prompt', t, m, d);
 
         let BACKEND_URL = localStorage.getItem('chat_backend_url') || "";
         let EMAIL = localStorage.getItem('chat_email') || "";
@@ -98,6 +120,23 @@
         let fetchInterval = null;
 
         document.getElementById('db-url').value = BACKEND_URL;
+        document.getElementById('email').value = EMAIL;
+
+        // --- THE JSONP BYPASS ---
+        function jsonpRequest(url, payload) {
+            return new Promise((resolve, reject) => {
+                const callbackName = 'jsonp_cb_' + Math.round(1000000 * Math.random());
+                window[callbackName] = function(data) {
+                    resolve(data); delete window[callbackName]; document.body.removeChild(script);
+                };
+                const script = document.createElement('script');
+                let queryString = `?callback=${callbackName}`;
+                for (let key in payload) queryString += `&${key}=${encodeURIComponent(payload[key])}`;
+                script.src = url + queryString;
+                script.onerror = () => { reject(new Error("CORS Error")); delete window[callbackName]; document.body.removeChild(script); };
+                document.body.appendChild(script);
+            });
+        }
 
         if (BACKEND_URL && EMAIL && PASSWORD) {
             document.getElementById('auth-screen').style.display = 'none';
@@ -110,63 +149,65 @@
             document.getElementById('auth-title').innerText = isLoginMode ? "Login" : "Sign Up";
             document.getElementById('auth-btn').innerText = isLoginMode ? "Login" : "Create Account";
             document.getElementById('auth-toggle').innerText = isLoginMode ? "Need an account? Sign up here" : "Already have an account? Login here";
+            document.getElementById('login-error').style.display = 'none';
         }
 
         async function submitAuth() {
             const url = document.getElementById('db-url').value.trim();
             const email = document.getElementById('email').value.trim();
             const pass = document.getElementById('password').value.trim();
+            const btn = document.getElementById('auth-btn');
+            const err = document.getElementById('login-error');
             
-            if (!url || !email || !pass) return OS.osAlert("Error", "Please fill out all fields.");
-            
-            document.getElementById('auth-btn').innerText = "Connecting...";
+            if (!url || !email || !pass) { err.innerText = "Fill out all fields."; err.style.display='block'; return; }
+            if (!url.includes('/exec')) { err.innerText = "URL must contain /exec"; err.style.display='block'; return; }
 
-            const payload = { action: isLoginMode ? "login" : "register", email: email, password: pass };
+            localStorage.setItem('chat_backend_url', url);
+            localStorage.setItem('chat_email', email);
             
+            btn.innerText = "Connecting...";
+            err.style.display = 'none';
+
             try {
-                const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
-                const data = await res.json();
+                const actionStr = isLoginMode ? 'login' : 'register';
+                const payload = { action: actionStr, email: email, password: pass };
+                
+                const data = await jsonpRequest(url, payload);
 
-                if (data.error) {
-                    OS.osAlert("Error", data.error);
-                    document.getElementById('auth-btn').innerText = isLoginMode ? "Login" : "Create Account";
-                } else {
-                    localStorage.setItem('chat_backend_url', url);
-                    localStorage.setItem('chat_email', email);
+                if (data.success) {
                     localStorage.setItem('chat_password', pass);
                     BACKEND_URL = url; EMAIL = email; PASSWORD = pass;
-                    
                     document.getElementById('auth-screen').style.display = 'none';
                     fetchData();
                     fetchInterval = setInterval(fetchData, 3000);
+                } else {
+                    err.innerText = data.error || "Authentication Failed";
+                    err.style.display = 'block';
+                    btn.innerText = isLoginMode ? "Login" : "Create Account";
                 }
             } catch (e) {
-                OS.osAlert("Error", "Could not connect to backend.");
-                document.getElementById('auth-btn').innerText = isLoginMode ? "Login" : "Create Account";
+                err.innerText = "Network Block. Did you deploy New Version in Google Script?";
+                err.style.display = 'block';
+                btn.innerText = isLoginMode ? "Login" : "Create Account";
             }
         }
 
-        function logout() {
-            localStorage.removeItem('chat_password');
-            location.reload();
-        }
+        function logout() { localStorage.removeItem('chat_password'); location.reload(); }
 
         async function apiCall(payload) {
             payload.email = EMAIL; payload.password = PASSWORD; payload.room = currentRoom;
             try {
-                const res = await fetch(BACKEND_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
-                const data = await res.json();
-                
-                // If backend says AuthFailed, password was changed or session expired
+                const data = await jsonpRequest(BACKEND_URL, payload);
                 if (data.error === "AuthFailed") {
                     clearInterval(fetchInterval);
-                    OS.osAlert("Session Expired", "Invalid email or password. Please login again.");
+                    await localAlert("Session Expired", "Invalid email or password.");
                     logout();
                 }
                 return data;
             } catch (e) { return { error: "Network Error" }; }
         }
 
+        // Keep all your fetchData, sendMessage, deleteMsg, and createRoom functions exactly the same!
         async function fetchData() {
             const data = await apiCall({ action: "getData" });
             if (data.error) return;
@@ -215,7 +256,7 @@
         }
 
         async function createNewRoom() {
-            let roomName = await OS.osPrompt("New Room", "Enter a name for the new public room:");
+            let roomName = await localPrompt("New Room", "Enter public room name:");
             if(roomName) { await apiCall({ action: "createRoom", roomName: roomName.replace(/\s+/g, '-').toLowerCase() }); fetchData(); }
         }
 
@@ -231,7 +272,7 @@
         document.getElementById('chat-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
 
         async function deleteMsg(id) {
-            let conf = await OS.osConfirm("Delete", "Delete this message? (Admins only)");
+            let conf = await localConfirm("Delete", "Delete this message?");
             if (conf) { await apiCall({ action: "deleteMessage", msgId: id }); fetchData(); }
         }
     </script>

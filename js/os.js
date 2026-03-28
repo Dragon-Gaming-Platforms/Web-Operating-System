@@ -15,7 +15,7 @@ document.addEventListener('click', (e) => {
 });
 
 // --------------------------------------------------------
-// GLOBAL AUTH SYSTEM (Single Sign-On)
+// GLOBAL AUTH SYSTEM (Single Sign-On with JSONP Bypass)
 // --------------------------------------------------------
 let isLoginMode = true;
 
@@ -33,6 +33,35 @@ function showAuthError(msg) {
     err.style.display = 'block';
 }
 
+// 1. THE ULTIMATE BYPASS: Disguises the data as a Script Tag
+function jsonpRequest(url, payload) {
+    return new Promise((resolve, reject) => {
+        const callbackName = 'jsonp_cb_' + Math.round(1000000 * Math.random());
+        
+        window[callbackName] = function(data) {
+            resolve(data);
+            delete window[callbackName];
+            document.body.removeChild(script);
+        };
+        
+        const script = document.createElement('script');
+        let queryString = `?callback=${callbackName}`;
+        for (let key in payload) {
+            queryString += `&${key}=${encodeURIComponent(payload[key])}`;
+        }
+        
+        script.src = url + queryString;
+        script.onerror = () => {
+            reject(new Error("CORS or Network Failure"));
+            delete window[callbackName];
+            document.body.removeChild(script);
+        };
+        
+        document.body.appendChild(script);
+    });
+}
+
+// 2. CHECK AUTH
 async function checkAuth() {
     const email = localStorage.getItem('os_email');
     const pass = localStorage.getItem('os_password');
@@ -43,11 +72,7 @@ async function checkAuth() {
 
     if (email && pass && url) {
         try {
-            // THE BYPASS: Sending the auth as a URL GET request
-            const getUrl = `${url}?action=login&email=${encodeURIComponent(email)}&password=${encodeURIComponent(pass)}`;
-            const res = await fetch(getUrl);
-            const data = await res.json();
-            
+            const data = await jsonpRequest(url, { action: 'login', email: email, password: pass });
             if (data.success) {
                 unlockOS(email);
             } else {
@@ -62,6 +87,7 @@ async function checkAuth() {
     }
 }
 
+// 3. SUBMIT AUTH
 async function submitAuth() {
     const url = document.getElementById('backend-url').value.trim();
     const email = document.getElementById('login-email').value.trim();
@@ -69,7 +95,7 @@ async function submitAuth() {
     const btn = document.getElementById('auth-btn');
     
     if(!url || !email || !pass) return showAuthError("Please fill out all fields.");
-    if(!url.endsWith('/exec')) return showAuthError("URL must end with /exec");
+    if(!url.includes('/exec')) return showAuthError("URL must contain /exec");
     
     localStorage.setItem('chat_backend_url', url);
     localStorage.setItem('os_email', email);
@@ -78,13 +104,10 @@ async function submitAuth() {
     document.getElementById('login-error').style.display = 'none';
 
     try {
-        const actionStr = isLoginMode ? 'login' : 'register';
+        const payload = { action: isLoginMode ? 'login' : 'register', email: email, password: pass };
         
-        // THE BYPASS: Formatting the data directly into the URL
-        const getUrl = `${url}?action=${actionStr}&email=${encodeURIComponent(email)}&password=${encodeURIComponent(pass)}`;
-        
-        const res = await fetch(getUrl);
-        const data = await res.json();
+        // Pushing data via the JSONP bypass
+        const data = await jsonpRequest(url, payload);
         
         if (data.success) {
             localStorage.setItem('os_password', pass);
@@ -96,7 +119,7 @@ async function submitAuth() {
             btn.innerText = isLoginMode ? "Unlock" : "Sign Up";
         }
     } catch(e) {
-        showAuthError("Failed! Did you deploy the New Version in GAS?");
+        showAuthError("Connection Failed. Did you deploy New Version in Google Scripts?");
         btn.innerText = isLoginMode ? "Unlock" : "Sign Up";
     }
 }
@@ -111,6 +134,10 @@ function unlockOS(email) {
     }, 500);
 }
 
+// Run instantly when page loads
+document.addEventListener('DOMContentLoaded', () => {
+    checkAuth();
+});
 // --------------------------------------------------------
 // CORE OS INIT
 // --------------------------------------------------------
