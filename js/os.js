@@ -75,66 +75,77 @@ async function checkAuth() {
     }
 }
 
-async function submitAuth() {
-    const urlInput = document.getElementById('backend-url');
-    const emailInput = document.getElementById('login-email');
-    const passInput = document.getElementById('login-pass');
-    const btn = document.getElementById('auth-btn');
-    const errDisplay = document.getElementById('login-error');
+async function checkAuth() {
+    const email = localStorage.getItem('os_email');
+    const pass = localStorage.getItem('os_password');
+    const url = localStorage.getItem('chat_backend_url');
+    
+    // 1. FIX THE VISUAL BUG: Always populate the inputs immediately so you see your saved data
+    if (url) document.getElementById('backend-url').value = url;
+    if (email) document.getElementById('login-email').value = email;
 
-    const url = urlInput.value.trim();
-    const email = emailInput.value.trim();
-    const pass = passInput.value.trim();
-
-    if(!url || !email || !pass) {
-        showAuthError("All fields required.");
-        return;
+    if (email && pass && url) {
+        try {
+            // 2. THE GOOGLE BYPASS: No headers! This skips the strict CORS Preflight check.
+            const res = await fetch(url, {
+                 method: 'POST', 
+                 body: JSON.stringify({action:'login', email:email, password:pass})
+            });
+            const data = await res.json();
+            if (data.success) {
+                unlockOS(email);
+            } else {
+                localStorage.removeItem('os_password');
+                document.getElementById('lock-screen').classList.remove('hidden');
+            }
+        } catch (e) {
+            console.error("Auto-login silent fail. Showing lock screen.");
+            document.getElementById('lock-screen').classList.remove('hidden');
+        }
+    } else {
+        document.getElementById('lock-screen').classList.remove('hidden');
     }
+}
 
-    // STEP 1: FORCE SAVE IMMEDIATELY
-    // We save this before the fetch so even if the fetch crashes the script, the data is safe.
+async function submitAuth() {
+    const url = document.getElementById('backend-url').value.trim();
+    const email = document.getElementById('login-email').value.trim();
+    const pass = document.getElementById('login-pass').value.trim();
+    const btn = document.getElementById('auth-btn');
+    
+    if(!url || !email || !pass) return showAuthError("Please fill out all fields.");
+    if(!url.endsWith('/exec')) return showAuthError("URL must end with /exec");
+    
+    // Save instantly to memory
     localStorage.setItem('chat_backend_url', url);
     localStorage.setItem('os_email', email);
-    localStorage.setItem('os_password', pass);
-    localStorage.setItem('chat_email', email);
-    localStorage.setItem('chat_password', pass);
-
+    
     btn.innerText = "Connecting...";
-    errDisplay.style.display = 'none';
+    document.getElementById('login-error').style.display = 'none';
 
     try {
         const payload = { action: isLoginMode ? 'login' : 'register', email: email, password: pass };
         
-        // STEP 2: THE "REDIRECT-FRIENDLY" FETCH
-        const response = await fetch(url, {
-            method: 'POST',
-            mode: 'cors', // Try cors first
-            headers: { 'Content-Type': 'text/plain' },
-            body: JSON.stringify(payload)
+        // THE GOOGLE BYPASS: No headers! 
+        const res = await fetch(url, { 
+            method: 'POST', 
+            body: JSON.stringify(payload) 
         });
-
-        const data = await response.json();
-
-        if(data.success) {
+        
+        const data = await res.json();
+        
+        if (data.success) {
+            localStorage.setItem('os_password', pass);
+            localStorage.setItem('chat_email', email);
+            localStorage.setItem('chat_password', pass);
             unlockOS(email);
         } else {
-            showAuthError(data.error || "Check credentials");
+            showAuthError(data.error || "Authentication Failed");
             btn.innerText = isLoginMode ? "Unlock" : "Sign Up";
         }
-    } catch (e) {
-        console.warn("Standard fetch failed, attempting legacy bridge...");
-        
-        // STEP 3: THE LAST RESORT (JSONP-style bypass)
-        // If Google is being very difficult with CORS, we let the user in 
-        // if they just registered, because we already saved their data locally.
-        if (!isLoginMode) {
-            // If they just clicked Sign Up, assume success and let them in
-            // The next time they load, the background check will verify them.
-            unlockOS(email);
-        } else {
-            showAuthError("Connection Blocked. Please check URL /exec");
-            btn.innerText = "Try Again";
-        }
+    } catch(e) {
+        showAuthError("Connection Blocked by Google or Network.");
+        btn.innerText = isLoginMode ? "Unlock" : "Sign Up";
     }
 }
 
