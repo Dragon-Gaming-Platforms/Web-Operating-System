@@ -38,6 +38,7 @@ async function checkAuth() {
     const pass = localStorage.getItem('os_password');
     const url = localStorage.getItem('chat_backend_url');
     
+    // Always populate the URL box if we have one saved
     if(url) document.getElementById('backend-url').value = url;
 
     if(email && pass && url) {
@@ -49,6 +50,7 @@ async function checkAuth() {
             if(data.success) {
                 unlockOS(email);
             } else {
+                // If password changed or wrong, clear password but KEEP the URL
                 localStorage.removeItem('os_password');
                 document.getElementById('lock-screen').classList.remove('hidden');
             }
@@ -68,6 +70,9 @@ async function submitAuth() {
     
     if(!url || !email || !pass) return showAuthError("Please fill out all fields.");
     
+    // SAVE URL IMMEDIATELY - Even if the login fails, you won't have to paste it again!
+    localStorage.setItem('chat_backend_url', url);
+    
     btn.innerText = "Connecting...";
     document.getElementById('login-error').style.display = 'none';
 
@@ -77,7 +82,7 @@ async function submitAuth() {
         const data = await res.json();
         
         if(data.success) {
-            localStorage.setItem('chat_backend_url', url);
+            // Save universally for OS and Apps
             localStorage.setItem('os_email', email);
             localStorage.setItem('os_password', pass);
             localStorage.setItem('chat_email', email);
@@ -89,7 +94,7 @@ async function submitAuth() {
             btn.innerText = isLoginMode ? "Unlock" : "Sign Up";
         }
     } catch(e) {
-        showAuthError("Connection Error. Check your Backend URL.");
+        showAuthError("Connection Error. Is the URL correct?");
         btn.innerText = isLoginMode ? "Unlock" : "Sign Up";
     }
 }
