@@ -7,9 +7,13 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-     <!-- 1. Lock Screen / Login -->
+    <!-- 1. Lock Screen / Login -->
     <div id="lock-screen">
         <div class="lock-bg"></div>
+        
+        <!-- NEW: Logo is now OUTSIDE and ABOVE the login box -->
+        <img src="assets/images/dragon-login.png" class="lock-logo" alt="Dragon Gaming Logo">
+        
         <div class="lock-content">
             <h2 id="auth-title">Welcome Back</h2>
             <p style="font-size: 12px; color: #aaa; margin-bottom: 20px;">Connect to your OS Server.</p>
@@ -24,7 +28,6 @@
             <p id="login-error" style="color:#ff6b6b; display:none; margin-top: 15px; font-size: 13px; font-weight: bold;"></p>
         </div>
     </div>
-
     <!-- Desktop Area -->
     <div id="desktop"></div>
     <div id="selection-box" class="hidden"></div>

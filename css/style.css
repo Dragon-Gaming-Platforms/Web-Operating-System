@@ -25,7 +25,8 @@ body { margin: 0; overflow: hidden; background: url('https://images.unsplash.com
 #lock-screen {
     position: fixed;
     inset: 0;
-    background: url('../assets/images/dragon-login.png') center center / contain no-repeat #000;
+    /* REPLACED the image with a cool dark gaming gradient */
+    background: radial-gradient(circle at center, #1a0000 0%, #000000 100%);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -38,6 +39,16 @@ body { margin: 0; overflow: hidden; background: url('https://images.unsplash.com
     filter: blur(20px);
     pointer-events: none;
     opacity: 0;
+}
+
+/* THIS IS THE NEW LOGO CLASS */
+.lock-logo {
+    width: 100%;
+    max-width: 500px;
+    max-height: 200px;
+    object-fit: contain;
+    margin-bottom: 30px;
+    filter: drop-shadow(0 0 15px rgba(255, 0, 0, 0.5));
 }
 
 @keyframes dragonPulse {
@@ -200,7 +211,6 @@ body { margin: 0; overflow: hidden; background: url('https://images.unsplash.com
     pointer-events: none;
 }
 
-/* THIS WAS THE MISSING LINE THAT BROKE IT: */
 .window { position: absolute; background: var(--bg-solid); border-radius: 8px; box-shadow: 0 15px 40px rgba(0,0,0,0.4); display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--mica-border); min-width: 300px; min-height: 200px; transition: opacity 0.2s, transform 0.2s; }
 
 .resize-handle { position: absolute; z-index: 20; display: none; }
