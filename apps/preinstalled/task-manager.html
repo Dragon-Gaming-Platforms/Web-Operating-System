@@ -2,46 +2,119 @@
 <html>
 <head>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #202020; color: white; padding: 20px; margin: 0; height: 100vh; display: flex; flex-direction: column; }
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            background: #202020; 
+            color: white; 
+            margin: 0; 
+            height: 100vh; 
+            display: flex; 
+            flex-direction: column; 
+        }
+        .header {
+            padding: 20px 20px 10px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .header h2 { margin: 0; font-weight: 500; font-size: 20px;}
+        .header p { margin: 5px 0 0 0; color: #aaa; font-size: 13px;}
+        
+        .table-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px 20px;
+        }
+
         table { width: 100%; border-collapse: collapse; }
-        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #444; }
-        th { background: #2d2d2d; }
-        button { background: #e81123; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
-        button:hover { opacity: 0.8; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 14px;}
+        th { color: #aaa; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;}
+        
+        tr:hover td { background: rgba(255,255,255,0.03); }
+        
+        .status-running { color: #27ae60; font-weight: bold; font-size: 12px;}
+        
+        button { 
+            background: #e81123; 
+            color: white; 
+            border: none; 
+            padding: 6px 15px; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            font-weight: bold;
+            transition: 0.2s;
+        }
+        button:hover { background: #ff2e2e; box-shadow: 0 0 10px rgba(255,0,0,0.4); }
+        
+        .empty-state { text-align: center; color: #666; margin-top: 40px; font-style: italic; }
     </style>
 </head>
 <body>
-    <h2>Task Manager</h2>
-    <table>
-        <thead><tr><th>App Name</th><th>Status</th><th>Action</th></tr></thead>
-        <tbody id="proc-list"></tbody>
-    </table>
+    <div class="header">
+        <h2>Task Manager</h2>
+        <p>Monitor and close running applications.</p>
+    </div>
+    
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>App Name</th>
+                    <th>Status</th>
+                    <th style="text-align: right;">Action</th>
+                </tr>
+            </thead>
+            <tbody id="proc-list"></tbody>
+        </table>
+    </div>
+
     <script>
         function render() {
             const list = document.getElementById('proc-list');
-            list.innerHTML = '';
-            if(window.parent && window.parent.appRegistry && window.parent.openWindows) {
+            let newHTML = '';
+            
+            if(window.parent && window.parent.openWindows && window.parent.openWindows.length > 0) {
                 const wins = window.parent.openWindows;
-                wins.forEach(w => {
-                    const info = w.winElement.querySelector('.window-title').innerText.replace(/\s/g, '');
+                
+                // Use array index instead of text-matching
+                wins.forEach((w, index) => {
+                    // Try to get the clean text name of the app
+                    let titleText = w.winElement.querySelector('.window-title').innerText.trim();
                     const appMeta = window.parent.appRegistry.find(a => a.id === w.appId);
-                    list.innerHTML += `
+                    let displayName = appMeta ? appMeta.name : (titleText || 'Unknown Process');
+                    
+                    newHTML += `
                         <tr>
-                            <td>${appMeta ? appMeta.name : 'External'}</td>
-                            <td>Running</td>
-                            <td><button onclick="kill('${info}')">End Task</button></td>
+                            <td style="font-weight: 500;">${displayName}</td>
+                            <td><span class="status-running">Running</span></td>
+                            <td style="text-align: right;"><button onclick="kill(${index})">End Task</button></td>
                         </tr>
                     `;
                 });
+            } else {
+                newHTML = `<tr><td colspan="3"><div class="empty-state">No apps currently running.</div></td></tr>`;
+            }
+
+            // Only update the DOM if the list actually changed (prevents buttons from flickering)
+            if(list.innerHTML !== newHTML) {
+                list.innerHTML = newHTML;
             }
         }
-        function kill(id) {
+
+        function kill(index) {
              if(window.parent && window.parent.openWindows) {
-                 // Find window by title text matching roughly
-                 const w = window.parent.openWindows.find(x => x.winElement.querySelector('.window-title').innerText.includes(id));
-                 if(w) { w.winElement.remove(); window.parent.openWindows = window.parent.openWindows.filter(x => x !== w); render(); window.parent.renderTaskbar(); }
+                 const w = window.parent.openWindows[index];
+                 if(w) { 
+                     // Remove from screen
+                     w.winElement.remove(); 
+                     // Remove from OS array safely
+                     window.parent.openWindows.splice(index, 1); 
+                     // Re-render taskbar and task manager
+                     window.parent.renderTaskbar(); 
+                     render(); 
+                 }
              }
         }
+
+        // Check for updates every 1 second
         setInterval(render, 1000);
         render();
     </script>
