@@ -140,6 +140,7 @@ function unlockOS(email) {
 document.addEventListener('DOMContentLoaded', () => {
     checkAuth();
 });
+
 // --------------------------------------------------------
 // CORE OS INIT
 // --------------------------------------------------------
@@ -274,9 +275,9 @@ function openWindow(appOrTitle, url, contentHTML = null, fallbackAppId = null) {
         else { snapMode = ''; snapPreview.classList.add('hidden'); }
     });
 
+    // UPDATED SNAPPING LOGIC WITH ANIMATIONS
     window.addEventListener('mouseup', () => {
         if(isDown && snapMode !== '') {
-            // NEW: Add a temporary transition so it glides smoothly into the snapped position
             win.style.transition = 'width 0.25s ease, height 0.25s ease, top 0.25s ease, left 0.25s ease';
             
             win.dataset.oldWidth = win.style.width; 
@@ -289,7 +290,6 @@ function openWindow(appOrTitle, url, contentHTML = null, fallbackAppId = null) {
             if (snapMode === 'left') { win.style.left = '0'; win.style.width = '50%'; }
             if (snapMode === 'right') { win.style.left = '50%'; win.style.width = '50%'; }
             
-            // NEW: Remove the transition after the animation finishes so dragging isn't laggy later
             setTimeout(() => {
                 win.style.transition = 'opacity 0.2s, transform 0.2s';
             }, 250);
@@ -407,6 +407,7 @@ function renderAppStore() {
 
 function renderTaskbar() {
     const taskbar = document.getElementById('taskbar-icons');
+    if (!taskbar) return; // Failsafe
     taskbar.innerHTML = ''; 
     const startBtn = document.createElement('div'); startBtn.className = 'taskbar-icon start-btn'; startBtn.id = 'start-btn';
     startBtn.innerHTML = `<img class="start-icon" src="https://upload.wikimedia.org/wikipedia/commons/e/e6/Windows_11_logo.svg">`;
@@ -503,8 +504,10 @@ async function checkForGitHubUpdates() {
 // --------------------------------------------------------
 // UI UTILITIES
 // --------------------------------------------------------
+
+// UPDATED CONTEXT MENU BUG FIX
 function bringToFront(win) {
-    hideContextMenu(); // <-- The bug fix we added earlier
+    hideContextMenu();
     if(win.style.display === 'none') win.style.display = 'flex';
     topZ++; win.style.zIndex = topZ;
     const index = openWindows.findIndex(w => w.winElement === win);
@@ -642,11 +645,6 @@ document.getElementById('ctx-new-folder').onclick = async () => {
     let name = await window.osPrompt("New Folder", "Enter folder name:");
     if(name) { await VFS.saveFile(name, 'folder', ''); renderDesktop(); showNotification('Created', name + ' created.'); }
 };
-
-// Run instantly as soon as the HTML is ready, do not wait for images to load!
-document.addEventListener('DOMContentLoaded', () => {
-    checkAuth();
-});
 
 // Failsafe: Force text boxes to populate immediately just in case
 const savedUrl = localStorage.getItem('chat_backend_url');
