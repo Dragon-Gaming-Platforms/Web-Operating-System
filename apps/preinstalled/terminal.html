@@ -43,6 +43,11 @@
                 print('ls       - List files');
                 print('mkdir    - Create a directory (mkdir folder)');
                 print('cd       - Change directory (cd folder OR cd ..)');
+                print('echo     - Print text or create file (echo "hi" > file.txt)');
+                print('cat      - Read a text file (cat file.txt)');
+                print('rm       - Delete a file or folder (rm file.txt)');
+                print('whoami   - Show current user');
+                print('date     - Show system date/time');
                 print('clear    - Clear terminal');
             }
             else if (cmdName === 'clear') { out.innerHTML = ''; }
@@ -50,10 +55,9 @@
                 const files = await VFS.getFiles();
                 let count = 0;
                 files.forEach(f => {
-                    // Check if file is inside current directory
-                    if (currentPath === '' && !f.name.includes('/')) { print(`  ${f.type === 'folder'?'[DIR]':'[FILE]'}  ${f.name}`); count++; }
+                    if (currentPath === '' && !f.name.includes('/')) { print(`  ${f.type === 'folder'?'[DIR] ':'[FILE]'} ${f.name}`); count++; }
                     else if (currentPath !== '' && f.name.startsWith(currentPath + '/') && f.name.substring(currentPath.length + 1).indexOf('/') === -1) {
-                        print(`  ${f.type === 'folder'?'[DIR]':'[FILE]'}  ${f.name.split('/').pop()}`); count++;
+                        print(`  ${f.type === 'folder'?'[DIR] ':'[FILE]'} ${f.name.split('/').pop()}`); count++;
                     }
                 });
                 if(count===0) print('  (Empty Directory)');
@@ -74,6 +78,37 @@
                     else print('Directory not found.');
                 }
             }
+            // NEW: Delete files/folders
+            else if (cmdName === 'rm' && args[1]) {
+                const path = currentPath === '' ? args[1] : `${currentPath}/${args[1]}`;
+                await VFS.deleteFile(path);
+                print(`Deleted ${args[1]}`);
+            }
+            // NEW: Read files
+            else if (cmdName === 'cat' && args[1]) {
+                const path = currentPath === '' ? args[1] : `${currentPath}/${args[1]}`;
+                const files = await VFS.getFiles();
+                const file = files.find(f => f.name === path && f.type !== 'folder');
+                if(file) print(file.content.replace(/</g, '&lt;').replace(/>/g, '&gt;')); // Sanitize HTML tags
+                else print('File not found or is a directory.');
+            }
+            // NEW: Create files with text
+            else if (cmdName === 'echo') {
+                const fullCmd = command.substring(5);
+                const parts = fullCmd.split('>');
+                if(parts.length > 1) {
+                    const text = parts[0].trim().replace(/^"|"$/g, ''); // Remove quotes
+                    const filename = parts[1].trim();
+                    const path = currentPath === '' ? filename : `${currentPath}/${filename}`;
+                    await VFS.saveFile(path, 'text/plain', text);
+                    print(`Saved to ${filename}`);
+                } else {
+                    print(fullCmd);
+                }
+            }
+            // NEW: System Info
+            else if (cmdName === 'whoami') { print(window.parent.currentUser || 'Guest'); }
+            else if (cmdName === 'date') { print(new Date().toString()); }
             else if (cmdName !== '') print(`'${cmdName}' is not recognized as an internal command.`);
         }
     </script>
