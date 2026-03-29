@@ -71,6 +71,23 @@
                     return f.name.startsWith(currentPath + '/') && f.name.substring(currentPath.length + 1).indexOf('/') === -1;
                 });
 
+                // --- NEW: Add "Up One Level" button if we are inside a folder ---
+                if (currentPath !== '') {
+                    const upDiv = document.createElement('div');
+                    upDiv.className = 'file-item';
+                    upDiv.innerHTML = `
+                        <div class="file-icon">⬆️</div>
+                        <div class="file-name">.. (Back)</div>
+                    `;
+                    upDiv.onclick = () => {
+                        const parts = currentPath.split('/');
+                        parts.pop(); // Remove the current folder from the path
+                        navigateFolder(parts.join('/'));
+                    };
+                    list.appendChild(upDiv);
+                }
+                
+                // Loop through files and folders
                 visibleItems.forEach(f => {
                     const div = document.createElement('div');
                     div.className = 'file-item';
