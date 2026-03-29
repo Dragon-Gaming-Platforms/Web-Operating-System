@@ -504,7 +504,7 @@ async function checkForGitHubUpdates() {
 // UI UTILITIES
 // --------------------------------------------------------
 function bringToFront(win) {
-    hideContextMenu();
+    hideContextMenu(); // <-- The bug fix we added earlier
     if(win.style.display === 'none') win.style.display = 'flex';
     topZ++; win.style.zIndex = topZ;
     const index = openWindows.findIndex(w => w.winElement === win);
