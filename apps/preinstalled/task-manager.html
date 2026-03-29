@@ -66,20 +66,27 @@
         </table>
     </div>
 
-    <script>
+        <script>
         function render() {
             const list = document.getElementById('proc-list');
             let newHTML = '';
             
-            if(window.parent && window.parent.openWindows && window.parent.openWindows.length > 0) {
-                const wins = window.parent.openWindows;
-                
-                // Use array index instead of text-matching
+            // Because we used 'var' in os.js, we can read these safely now!
+            const wins = window.parent.openWindows;
+            const registry = window.parent.appRegistry;
+
+            if(wins && wins.length > 0) {
                 wins.forEach((w, index) => {
-                    // Try to get the clean text name of the app
-                    let titleText = w.winElement.querySelector('.window-title').innerText.trim();
-                    const appMeta = window.parent.appRegistry.find(a => a.id === w.appId);
-                    let displayName = appMeta ? appMeta.name : (titleText || 'Unknown Process');
+                    let displayName = 'Unknown Process';
+                    try {
+                        const appMeta = registry.find(a => a.id === w.appId);
+                        if (appMeta) {
+                            displayName = appMeta.name;
+                        } else if (w.winElement) {
+                            // Strip out any HTML icons from the title
+                            displayName = w.winElement.querySelector('.window-title').innerText.trim();
+                        }
+                    } catch(e) {}
                     
                     newHTML += `
                         <tr>
@@ -93,24 +100,23 @@
                 newHTML = `<tr><td colspan="3"><div class="empty-state">No apps currently running.</div></td></tr>`;
             }
 
-            // Only update the DOM if the list actually changed (prevents buttons from flickering)
+            // Only update the screen if something changed to stop flickering
             if(list.innerHTML !== newHTML) {
                 list.innerHTML = newHTML;
             }
         }
 
         function kill(index) {
-             if(window.parent && window.parent.openWindows) {
-                 const w = window.parent.openWindows[index];
-                 if(w) { 
-                     // Remove from screen
-                     w.winElement.remove(); 
-                     // Remove from OS array safely
-                     window.parent.openWindows.splice(index, 1); 
-                     // Re-render taskbar and task manager
-                     window.parent.renderTaskbar(); 
-                     render(); 
+             try {
+                 // Safely delete the window directly
+                 if (window.parent.openWindows[index]) {
+                     window.parent.openWindows[index].winElement.remove();
+                     window.parent.openWindows.splice(index, 1);
+                     window.parent.renderTaskbar();
+                     render();
                  }
+             } catch(e) {
+                 console.error("Task Manager error:", e);
              }
         }
 

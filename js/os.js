@@ -1,8 +1,8 @@
 let topZ = 100;
-let installedApps = JSON.parse(localStorage.getItem('installedApps') || '[]');
-let appRegistry = JSON.parse(localStorage.getItem('dynamicAppRegistry') || '[]');
+var installedApps = JSON.parse(localStorage.getItem('installedApps') || '[]');
+var appRegistry = JSON.parse(localStorage.getItem('dynamicAppRegistry') || '[]');
 window.browserEngines = JSON.parse(localStorage.getItem('browserEngines') || '[]'); 
-let openWindows = []; 
+var openWindows = []; 
 const pinnedApps = ['file-explorer', 'browser', 'settings', 'updates', 'task-manager']; 
 const ADMINS = ["jkhyer@bluevalleyk12.net", "jaxonkhyer@gmail.com"];
 let volumeLevel = 100;
