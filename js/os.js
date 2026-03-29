@@ -276,14 +276,23 @@ function openWindow(appOrTitle, url, contentHTML = null, fallbackAppId = null) {
 
     window.addEventListener('mouseup', () => {
         if(isDown && snapMode !== '') {
+            // NEW: Add a temporary transition so it glides smoothly into the snapped position
+            win.style.transition = 'width 0.25s ease, height 0.25s ease, top 0.25s ease, left 0.25s ease';
+            
             win.dataset.oldWidth = win.style.width; 
             win.dataset.oldHeight = win.style.height; 
             win.dataset.snapped = "true"; 
             win.style.top = '0'; 
             win.style.height = 'calc(100% - 52px)';
+            
             if (snapMode === 'top') { win.style.left = '0'; win.style.width = '100%'; }
             if (snapMode === 'left') { win.style.left = '0'; win.style.width = '50%'; }
             if (snapMode === 'right') { win.style.left = '50%'; win.style.width = '50%'; }
+            
+            // NEW: Remove the transition after the animation finishes so dragging isn't laggy later
+            setTimeout(() => {
+                win.style.transition = 'opacity 0.2s, transform 0.2s';
+            }, 250);
         }
         isDown = false; snapMode = ''; snapPreview.classList.add('hidden');
         document.querySelectorAll('.drag-shield').forEach(s => s.style.display = 'none');
