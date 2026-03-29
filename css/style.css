@@ -25,7 +25,6 @@ body { margin: 0; overflow: hidden; background: url('https://images.unsplash.com
 #lock-screen {
     position: fixed;
     inset: 0;
-    /* Changed 'cover' to 'contain' and added a pure black background */
     background: url('../assets/images/dragon-login.png') center center / contain no-repeat #000;
     display: flex;
     align-items: center;
@@ -54,7 +53,7 @@ body { margin: 0; overflow: hidden; background: url('https://images.unsplash.com
     background: rgba(10, 0, 0, 0.75);
     backdrop-filter: blur(15px);
     border: 1px solid rgba(255, 0, 0, 0.25);
-    box-shadow: 0 0 40px rgba(255, 0, 0, 0.2), 0 0 80px rgba(255, 0, 0, 0.1);
+    animation: dragonPulse 3s infinite ease-in-out;
     text-align: center;
 }
 
@@ -193,7 +192,6 @@ body { margin: 0; overflow: hidden; background: url('https://images.unsplash.com
     backdrop-filter: blur(5px); 
     z-index: 99; 
     border-radius: 8px;
-    /* Make the preview smoothly follow your mouse and fade in nicely */
     transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.2s ease;
     opacity: 1;
 }
@@ -201,6 +199,10 @@ body { margin: 0; overflow: hidden; background: url('https://images.unsplash.com
     opacity: 0; 
     pointer-events: none;
 }
+
+/* THIS WAS THE MISSING LINE THAT BROKE IT: */
+.window { position: absolute; background: var(--bg-solid); border-radius: 8px; box-shadow: 0 15px 40px rgba(0,0,0,0.4); display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--mica-border); min-width: 300px; min-height: 200px; transition: opacity 0.2s, transform 0.2s; }
+
 .resize-handle { position: absolute; z-index: 20; display: none; }
 .window:hover .resize-handle { display: block; }
 .resizer-rw { right: 0; top: 0; bottom: 0; width: 5px; cursor: ew-resize; }
