@@ -572,14 +572,43 @@ function getAppIconHTML(app, isSmall = false) {
 
 function openFile(file) {
     const ext = file.name.split('.').pop().toLowerCase();
-    if(ext === 'html') openWindow(file.name.split('/').pop(), null, `<iframe srcdoc="${file.content.replace(/"/g, '&quot;')}"></iframe>`);
-    else if(ext === 'txt') openWindow(file.name.split('/').pop(), null, `<textarea style="width:100%;height:100%;resize:none;padding:15px;box-sizing:border-box;background:#1e1e1e;color:#fff;border:none;outline:none;" readonly>${file.content}</textarea>`);
-    else if(ext === 'png' || ext === 'jpg' || ext === 'jpeg' || ext === 'gif') openWindow(file.name.split('/').pop(), null, `<div style="background:#111;height:100%;display:flex;align-items:center;justify-content:center;"><img src="${file.content}" style="max-width:100%;max-height:100%;"></div>`);
-    else if(ext === 'mp4' || ext === 'webm') openWindow(file.name.split('/').pop(), null, `<div style="background:#000;height:100%;display:flex;align-items:center;justify-content:center;"><video src="${file.content}" controls autoplay style="width:100%;height:100%;outline:none;"></video></div>`);
-    else if(ext === 'mp3' || ext === 'wav') openWindow(file.name.split('/').pop(), null, `<div style="background:#111;height:100%;display:flex;align-items:center;justify-content:center; flex-direction:column; gap:20px;"><h2>🎵 ${file.name.split('/').pop()}</h2><audio src="${file.content}" controls autoplay style="width:80%;outline:none;"></audio></div>`);
-    else window.osAlert('Error', 'Filetype not supported');
+    
+    // 1. TEXT & CODE FILES (Opens in the Auto-saving Code Editor)
+    if(['txt', 'html', 'js', 'css', 'json'].includes(ext)) {
+        // We have to make the code safe to display inside a text box
+        const safeContent = file.content
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+            
+        const editorHTML = `
+            <div style="display:flex; flex-direction:column; height:100%; background:#1e1e1e;">
+                <div style="padding:8px 15px; background:#2d2d2d; border-bottom:1px solid #444; font-size:12px; color:#aaa; display:flex; justify-content:space-between;">
+                    <span>📝 Editing: ${file.name}</span>
+                    <span style="color:#60cdff">Auto-saves as you type</span>
+                </div>
+                <textarea spellcheck="false" style="flex:1; padding:15px; background:#1e1e1e; color:#d4d4d4; border:none; outline:none; font-family:'Consolas', monospace; font-size:13px; resize:none; white-space:pre; overflow:auto;" oninput="window.parent.VFS.saveFile('${file.name}', '${file.type}', this.value)">${safeContent}</textarea>
+            </div>
+        `;
+        openWindow(file.name.split('/').pop(), null, editorHTML);
+    }
+    // 2. IMAGES
+    else if(['png', 'jpg', 'jpeg', 'gif'].includes(ext)) {
+        openWindow(file.name.split('/').pop(), null, `<div style="background:#111;height:100%;display:flex;align-items:center;justify-content:center;"><img src="${file.content}" style="max-width:100%;max-height:100%;"></div>`);
+    }
+    // 3. VIDEOS
+    else if(['mp4', 'webm'].includes(ext)) {
+        openWindow(file.name.split('/').pop(), null, `<div style="background:#000;height:100%;display:flex;align-items:center;justify-content:center;"><video src="${file.content}" controls autoplay style="width:100%;height:100%;outline:none;"></video></div>`);
+    }
+    // 4. AUDIO
+    else if(['mp3', 'wav'].includes(ext)) {
+        openWindow(file.name.split('/').pop(), null, `<div style="background:#111;height:100%;display:flex;align-items:center;justify-content:center; flex-direction:column; gap:20px;"><h2>🎵 ${file.name.split('/').pop()}</h2><audio src="${file.content}" controls autoplay style="width:80%;outline:none;"></audio></div>`);
+    }
+    // 5. UNKNOWN
+    else {
+        window.osAlert('Error', 'Filetype not supported');
+    }
 }
-
 // --------------------------------------------------------
 // ACTION CENTER & MENUS
 // --------------------------------------------------------
