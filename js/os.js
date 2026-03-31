@@ -573,14 +573,9 @@ function getAppIconHTML(app, isSmall = false) {
 function openFile(file) {
     const ext = file.name.split('.').pop().toLowerCase();
     
-    // 1. TEXT & CODE FILES (Opens in the Auto-saving Code Editor)
+    // 1. TEXT & CODE FILES (Opens in Code Editor)
     if(['txt', 'html', 'js', 'css', 'json'].includes(ext)) {
-        // We have to make the code safe to display inside a text box
-        const safeContent = file.content
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;');
-            
+        const safeContent = file.content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         const editorHTML = `
             <div style="display:flex; flex-direction:column; height:100%; background:#1e1e1e;">
                 <div style="padding:8px 15px; background:#2d2d2d; border-bottom:1px solid #444; font-size:12px; color:#aaa; display:flex; justify-content:space-between;">
@@ -592,21 +587,28 @@ function openFile(file) {
         `;
         openWindow(file.name.split('/').pop(), null, editorHTML);
     }
-    // 2. IMAGES
+    // 2. EXECUTABLE APPS (.exe compiled from HTML)
+    else if (ext === 'exe') {
+        const safeContent = file.content.replace(/"/g, '&quot;');
+        const exeHTML = `<iframe srcdoc="${safeContent}" style="width:100%; height:100%; border:none; background:#fff; pointer-events:auto;" sandbox="allow-scripts allow-forms allow-popups allow-same-origin"></iframe>`;
+        // Opens exactly like a system app!
+        openWindow(file.name.split('/').pop(), null, exeHTML);
+    }
+    // 3. IMAGES
     else if(['png', 'jpg', 'jpeg', 'gif'].includes(ext)) {
         openWindow(file.name.split('/').pop(), null, `<div style="background:#111;height:100%;display:flex;align-items:center;justify-content:center;"><img src="${file.content}" style="max-width:100%;max-height:100%;"></div>`);
     }
-    // 3. VIDEOS
+    // 4. VIDEOS
     else if(['mp4', 'webm'].includes(ext)) {
         openWindow(file.name.split('/').pop(), null, `<div style="background:#000;height:100%;display:flex;align-items:center;justify-content:center;"><video src="${file.content}" controls autoplay style="width:100%;height:100%;outline:none;"></video></div>`);
     }
-    // 4. AUDIO
+    // 5. AUDIO
     else if(['mp3', 'wav'].includes(ext)) {
         openWindow(file.name.split('/').pop(), null, `<div style="background:#111;height:100%;display:flex;align-items:center;justify-content:center; flex-direction:column; gap:20px;"><h2>🎵 ${file.name.split('/').pop()}</h2><audio src="${file.content}" controls autoplay style="width:80%;outline:none;"></audio></div>`);
     }
-    // 5. UNKNOWN
+    // 6. UNKNOWN
     else {
-        window.osAlert('Error', 'Filetype not supported');
+        window.osAlert('Error', 'Filetype not supported or unrecognized executable.');
     }
 }
 // --------------------------------------------------------
