@@ -1,4 +1,5 @@
-const VFS = {
+
+var VFS = {
     db: null,
     init: function() {
         return new Promise((resolve, reject) => {
