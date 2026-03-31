@@ -131,8 +131,8 @@
             // 🛑 HIDDEN ADMIN COMMANDS: PULL & PUSH FROM GITHUB
             // ---------------------------------------------------------
             else if (cmdName === 'sudo') {
-                const currentUser = window.parent.currentUser || '';
-                const admins = window.parent.ADMINS || [];
+               const currentUser = (window.parent.currentUser || '').toLowerCase();
+                const admins = (window.parent.ADMINS || []).map(a => a.toLowerCase());
                 
                 if (!admins.includes(currentUser)) {
                     return print('<span style="color:#ff4d4d">Permission denied. This incident will be reported.</span>');
