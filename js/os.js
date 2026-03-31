@@ -92,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // 3. SUBMIT AUTH
 async function submitAuth() {
     const url = document.getElementById('backend-url').value.trim();
-    const email = document.getElementById('login-email').value.trim();
+    const email = document.getElementById('login-email').value.toLowerCase().trim();
     const pass = document.getElementById('login-pass').value.trim();
     const btn = document.getElementById('auth-btn');
     
