@@ -1,11 +1,11 @@
-let topZ = 100;
+var topZ = 100;
 var installedApps = JSON.parse(localStorage.getItem('installedApps') || '[]');
 var appRegistry = JSON.parse(localStorage.getItem('dynamicAppRegistry') || '[]');
 window.browserEngines = JSON.parse(localStorage.getItem('browserEngines') || '[]'); 
 var openWindows = []; 
-const pinnedApps = ['file-explorer', 'browser', 'settings', 'updates', 'task-manager']; 
-const ADMINS = ["jkhyer@bluevalleyk12.net", "jaxonkhyer@gmail.com"];
-let volumeLevel = 100;
+var pinnedApps = ['file-explorer', 'browser', 'settings', 'updates', 'task-manager']; 
+var ADMINS = ["jkhyer@bluevalleyk12.net", "jaxonkhyer@gmail.com"];
+var volumeLevel = 100;
 
 document.addEventListener('contextmenu', e => { e.preventDefault(); hideContextMenu(); });
 document.addEventListener('click', (e) => {
