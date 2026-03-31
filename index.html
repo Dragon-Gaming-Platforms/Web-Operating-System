@@ -82,6 +82,18 @@
         <div class="context-item" id="ctx-personalize">Personalize</div>
         <div class="context-item" id="ctx-delete">Delete</div>
     </div>
+    <!-- Add this right above the scripts at the bottom! -->
+    <div id="os-dialog" class="hidden">
+        <div class="dialog-box">
+            <h3 id="dialog-title">Title</h3>
+            <p id="dialog-message">Message</p>
+            <input type="text" id="dialog-input">
+            <div class="dialog-buttons">
+                <button id="dialog-btn-cancel">Cancel</button>
+                <button id="dialog-btn-ok" class="primary">OK</button>
+            </div>
+        </div>
+    </div>
 
     <script src="js/vfs.js"></script>
     <script src="js/os.js"></script>
