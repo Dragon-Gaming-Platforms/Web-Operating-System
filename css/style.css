@@ -142,7 +142,13 @@ body { margin: 0; overflow: hidden; background: url('https://images.unsplash.com
     font-weight: bold;
     text-shadow: 0 0 5px rgba(255,0,0,0.5);
 }
+.win-btn.open-tab {
+    color: white;
+}
 
+.win-btn.open-tab:hover {
+    color: cyan;
+}
 /* -------------------------------------- */
 /* DESKTOP & TASKBAR                      */
 /* -------------------------------------- */
