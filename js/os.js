@@ -197,6 +197,7 @@ function openWindow(appOrTitle, url, contentHTML = null, fallbackAppId = null) {
             <div class="window-controls">
                 <div class="win-btn minimize" style="font-size: 16px;">—</div>
                 <div class="win-btn box" style="font-size: 16px;">□</div>
+                <div class="win-btn open-tab" style="font-size: 14px;">⧉</div>
                 <div class="win-btn close" style="font-size: 14px;">✕</div>
             </div>
         </div>
@@ -213,6 +214,41 @@ function openWindow(appOrTitle, url, contentHTML = null, fallbackAppId = null) {
     renderTaskbar();
 
     const header = win.querySelector('.window-header');
+// --- OPEN IN NEW TAB FEATURE ---
+const openTabBtn = win.querySelector('.open-tab');
+const iframe = win.querySelector('.window-content iframe');
+
+if (openTabBtn) {
+    openTabBtn.addEventListener('click', () => {
+        try {
+            const newTab = window.open('about:blank', '_blank');
+
+            if (!newTab) {
+                alert("Popup blocked!");
+                return;
+            }
+
+            // If iframe exists, try to clone content
+            if (iframe) {
+                try {
+                    const doc = iframe.contentDocument || iframe.contentWindow.document;
+
+                    newTab.document.open();
+                    newTab.document.write(doc.documentElement.outerHTML);
+                    newTab.document.close();
+                } catch (err) {
+                    // fallback: just open the source
+                    newTab.location.href = iframe.src;
+                }
+            } else {
+                newTab.document.write("<h1>No iframe content</h1>");
+            }
+
+        } catch (err) {
+            console.error("Open in new tab failed:", err);
+        }
+    });
+}
     const snapPreview = document.getElementById('snap-preview');
     let isDown = false, startX, startY, winX, winY, snapMode = '';
 
