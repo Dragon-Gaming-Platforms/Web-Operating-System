@@ -6,14 +6,39 @@ var openWindows = [];
 var pinnedApps = ['file-explorer', 'browser', 'settings', 'updates', 'task-manager']; 
 var ADMINS = ["jkhyer@bluevalleyk12.net", "jaxonkhyer@gmail.com"];
 var volumeLevel = 100;
+var OPEN_WINDOWS = [];
 
+// Load saved windows into memory
+try {
+    OPEN_WINDOWS = JSON.parse(localStorage.getItem(WINDOW_STORAGE_KEY) || "[]");
+} catch (e) {
+    OPEN_WINDOWS = [];
+}
 document.addEventListener('contextmenu', e => { e.preventDefault(); hideContextMenu(); });
 document.addEventListener('click', (e) => {
     hideContextMenu();
     document.getElementById('action-center').classList.add('hidden');
     if(e.target.id === 'desktop') document.querySelectorAll('.desktop-icon').forEach(el => el.classList.remove('selected'));
 });
+// --- WINDOW RESTORE SYSTEM ---
 
+var WINDOW_STORAGE_KEY = "dgpos_windows";
+
+function saveWindowState(windows) {
+    try {
+        localStorage.setItem(WINDOW_STORAGE_KEY, JSON.stringify(windows));
+    } catch (e) {
+        console.warn("Save failed", e);
+    }
+}
+
+function loadWindowState() {
+    try {
+        return JSON.parse(localStorage.getItem(WINDOW_STORAGE_KEY) || "[]");
+    } catch (e) {
+        return [];
+    }
+}
 // --------------------------------------------------------
 // GLOBAL AUTH SYSTEM (Single Sign-On with JSONP Bypass)
 // --------------------------------------------------------
@@ -195,10 +220,10 @@ function openWindow(appOrTitle, url, contentHTML = null, fallbackAppId = null) {
         <div class="window-header">
             <div class="window-title">${headerIconHTML} ${title}</div>
             <div class="window-controls">
-                <div class="win-btn minimize" style="font-size: 16px;">—</div>
-                <div class="win-btn box" style="font-size: 16px;">□</div>
-                <div class="win-btn open-tab" style="font-size: 14px;">⧉</div>
-                <div class="win-btn close" style="font-size: 14px;">✕</div>
+                <div class="win-btn minimize" style="font-size: 16px;">â</div>
+                <div class="win-btn box" style="font-size: 16px;">â¡</div>
+                <div class="win-btn open-tab" style="font-size: 14px;">â§</div>
+                <div class="win-btn close" style="font-size: 14px;">â</div>
             </div>
         </div>
         <div class="resize-handle resizer-rw"></div>
@@ -210,7 +235,20 @@ function openWindow(appOrTitle, url, contentHTML = null, fallbackAppId = null) {
         </div>
     `;
     document.body.appendChild(win);
+// --- SAVE WINDOW STATE ---
+var winData = {
+    title: title,
+    url: url,
+    width: win.style.width,
+    height: win.style.height,
+    left: win.style.left,
+    top: win.style.top
+};
+
+OPEN_WINDOWS.push(winData);
+saveWindowState(OPEN_WINDOWS);
     openWindows.push({ winElement: win, appId: appId });
+
     renderTaskbar();
 
     const header = win.querySelector('.window-header');
@@ -270,6 +308,13 @@ if (openTabBtn) {
                 else if(resizer.classList.contains('resizer-br')) { 
                     win.style.width = (winX + me.clientX - startX) + 'px';
                     win.style.height = (winY + me.clientY - startY) + 'px';
+// --- UPDATE SIZE IN STORAGE ---
+var index = openWindows.findIndex(w => w.winElement === win);
+if (index !== -1 && OPEN_WINDOWS[index]) {
+    OPEN_WINDOWS[index].width = win.style.width;
+    OPEN_WINDOWS[index].height = win.style.height;
+    saveWindowState(OPEN_WINDOWS);
+}
                 }
             }
             function onMouseUp() {
@@ -310,6 +355,13 @@ if (openTabBtn) {
         else if (e.clientX > window.innerWidth - 10) { snapMode = 'right'; snapPreview.style.top = '0'; snapPreview.style.left = '50%'; snapPreview.style.width = '50%'; snapPreview.style.height = 'calc(100% - 52px)'; snapPreview.classList.remove('hidden'); }
         else { snapMode = ''; snapPreview.classList.add('hidden'); }
     });
+// --- UPDATE POSITION IN STORAGE ---
+var index = openWindows.findIndex(w => w.winElement === win);
+if (index !== -1 && OPEN_WINDOWS[index]) {
+    OPEN_WINDOWS[index].left = win.style.left;
+    OPEN_WINDOWS[index].top = win.style.top;
+    saveWindowState(OPEN_WINDOWS);
+}
 
     // UPDATED SNAPPING LOGIC WITH ANIMATIONS
     window.addEventListener('mouseup', () => {
@@ -335,7 +387,18 @@ if (openTabBtn) {
     });
 
     win.addEventListener('mousedown', () => bringToFront(win));
-    win.querySelector('.close').onclick = () => { win.remove(); openWindows = openWindows.filter(w => w.winElement !== win); renderTaskbar(); };
+   win.querySelector('.close').onclick = () => { 
+    var index = openWindows.findIndex(w => w.winElement === win);
+
+    if (index !== -1) {
+        OPEN_WINDOWS.splice(index, 1);
+        saveWindowState(OPEN_WINDOWS);
+    }
+
+    win.remove(); 
+    openWindows = openWindows.filter(w => w.winElement !== win); 
+    renderTaskbar(); 
+};
     win.querySelector('.minimize').onclick = () => { win.style.display = 'none'; renderTaskbar(); };
     win.querySelector('.box').onclick = () => {
         if(win.style.width === '100%') { win.style.width = win.dataset.oldWidth || '800px'; win.style.height = win.dataset.oldHeight || '550px'; win.style.left = '150px'; win.style.top = '80px'; win.dataset.snapped = ""; }
@@ -497,11 +560,11 @@ async function silentUpdateAppList() {
                         let title = baseName.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
                         
                         let customIcon = null;
-                        if(baseName === 'file-explorer') customIcon = '📁';
-                        if(baseName === 'settings') customIcon = '⚙️';
-                        if(baseName === 'terminal') customIcon = '⌨️';
-                        if(baseName === 'browser') customIcon = '🌐';
-                        if(baseName === 'updates') customIcon = '📢';
+                        if(baseName === 'file-explorer') customIcon = 'ð';
+                        if(baseName === 'settings') customIcon = 'âï¸';
+                        if(baseName === 'terminal') customIcon = 'â¨ï¸';
+                        if(baseName === 'browser') customIcon = 'ð';
+                        if(baseName === 'updates') customIcon = 'ð¢';
 
                         if(folder === 'browsers') { newEngines.push({ id: baseName, name: title, path: file.path }); } 
                         else { newRegistry.push({ id: baseName, name: title, path: file.path, category: defaultCategory, preinstalled: isPreinstalled, icon: customIcon }); }
@@ -615,7 +678,7 @@ function openFile(file) {
         const editorHTML = `
             <div style="display:flex; flex-direction:column; height:100%; background:#1e1e1e;">
                 <div style="padding:8px 15px; background:#2d2d2d; border-bottom:1px solid #444; font-size:12px; color:#aaa; display:flex; justify-content:space-between;">
-                    <span>📝 Editing: ${file.name}</span>
+                    <span>ð Editing: ${file.name}</span>
                     <span style="color:#60cdff">Auto-saves as you type</span>
                 </div>
                 <textarea spellcheck="false" style="flex:1; padding:15px; background:#1e1e1e; color:#d4d4d4; border:none; outline:none; font-family:'Consolas', monospace; font-size:13px; resize:none; white-space:pre; overflow:auto;" oninput="window.parent.VFS.saveFile('${file.name}', '${file.type}', this.value)">${safeContent}</textarea>
@@ -640,7 +703,7 @@ function openFile(file) {
     }
     // 5. AUDIO
     else if(['mp3', 'wav'].includes(ext)) {
-        openWindow(file.name.split('/').pop(), null, `<div style="background:#111;height:100%;display:flex;align-items:center;justify-content:center; flex-direction:column; gap:20px;"><h2>🎵 ${file.name.split('/').pop()}</h2><audio src="${file.content}" controls autoplay style="width:80%;outline:none;"></audio></div>`);
+        openWindow(file.name.split('/').pop(), null, `<div style="background:#111;height:100%;display:flex;align-items:center;justify-content:center; flex-direction:column; gap:20px;"><h2>ðµ ${file.name.split('/').pop()}</h2><audio src="${file.content}" controls autoplay style="width:80%;outline:none;"></audio></div>`);
     }
     // 6. UNKNOWN
     else {
