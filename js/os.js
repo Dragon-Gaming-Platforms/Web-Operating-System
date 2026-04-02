@@ -220,11 +220,10 @@ function openWindow(appOrTitle, url, contentHTML = null, fallbackAppId = null) {
         <div class="window-header">
             <div class="window-title">${headerIconHTML} ${title}</div>
             <div class="window-controls">
-                <div class="win-btn minimize" style="font-size: 16px;">â</div>
-                <div class="win-btn box" style="font-size: 16px;">â¡</div>
-                <div class="win-btn open-tab" style="font-size: 14px;">â§</div>
-                <div class="win-btn close" style="font-size: 14px;">â</div>
-            </div>
+            <div class="win-btn minimize" style="font-size: 16px;">&minus;</div>
+            <div class="win-btn box" style="font-size: 16px;">&#9633;</div>
+            <div class="win-btn open-tab" style="font-size: 14px;">&#10697;</div>
+            <div class="win-btn close" style="font-size: 14px;">&#10005;</div>            </div>
         </div>
         <div class="resize-handle resizer-rw"></div>
         <div class="resize-handle resizer-ns"></div>
@@ -560,11 +559,11 @@ async function silentUpdateAppList() {
                         let title = baseName.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
                         
                         let customIcon = null;
-                        if(baseName === 'file-explorer') customIcon = 'ð';
-                        if(baseName === 'settings') customIcon = 'âï¸';
-                        if(baseName === 'terminal') customIcon = 'â¨ï¸';
-                        if(baseName === 'browser') customIcon = 'ð';
-                        if(baseName === 'updates') customIcon = 'ð¢';
+                        if(baseName === 'file-explorer') customIcon = 'Ã°ÂÂÂ';
+                        if(baseName === 'settings') customIcon = 'Ã¢ÂÂÃ¯Â¸Â';
+                        if(baseName === 'terminal') customIcon = 'Ã¢ÂÂ¨Ã¯Â¸Â';
+                        if(baseName === 'browser') customIcon = 'Ã°ÂÂÂ';
+                        if(baseName === 'updates') customIcon = 'Ã°ÂÂÂ¢';
 
                         if(folder === 'browsers') { newEngines.push({ id: baseName, name: title, path: file.path }); } 
                         else { newRegistry.push({ id: baseName, name: title, path: file.path, category: defaultCategory, preinstalled: isPreinstalled, icon: customIcon }); }
@@ -678,7 +677,7 @@ function openFile(file) {
         const editorHTML = `
             <div style="display:flex; flex-direction:column; height:100%; background:#1e1e1e;">
                 <div style="padding:8px 15px; background:#2d2d2d; border-bottom:1px solid #444; font-size:12px; color:#aaa; display:flex; justify-content:space-between;">
-                    <span>ð Editing: ${file.name}</span>
+                    <span>Ã°ÂÂÂ Editing: ${file.name}</span>
                     <span style="color:#60cdff">Auto-saves as you type</span>
                 </div>
                 <textarea spellcheck="false" style="flex:1; padding:15px; background:#1e1e1e; color:#d4d4d4; border:none; outline:none; font-family:'Consolas', monospace; font-size:13px; resize:none; white-space:pre; overflow:auto;" oninput="window.parent.VFS.saveFile('${file.name}', '${file.type}', this.value)">${safeContent}</textarea>
@@ -703,7 +702,7 @@ function openFile(file) {
     }
     // 5. AUDIO
     else if(['mp3', 'wav'].includes(ext)) {
-        openWindow(file.name.split('/').pop(), null, `<div style="background:#111;height:100%;display:flex;align-items:center;justify-content:center; flex-direction:column; gap:20px;"><h2>ðµ ${file.name.split('/').pop()}</h2><audio src="${file.content}" controls autoplay style="width:80%;outline:none;"></audio></div>`);
+        openWindow(file.name.split('/').pop(), null, `<div style="background:#111;height:100%;display:flex;align-items:center;justify-content:center; flex-direction:column; gap:20px;"><h2>Ã°ÂÂÂµ ${file.name.split('/').pop()}</h2><audio src="${file.content}" controls autoplay style="width:80%;outline:none;"></audio></div>`);
     }
     // 6. UNKNOWN
     else {
