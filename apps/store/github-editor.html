@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            background: #0d1117; 
+            color: #c9d1d9; 
+            height: 100vh; 
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden;
+        }
+
+        /* Auth & Repo Bar */
+        .top-bar {
+            background: #161b22;
+            padding: 12px 15px;
+            border-bottom: 1px solid #30363d;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .top-bar input {
+            padding: 8px 12px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #c9d1d9;
+            font-size: 13px;
+            outline: none;
+        }
+        .top-bar input:focus { border-color: #58a6ff; }
+        .top-bar input::placeholder { color: #6e7681; }
+        .top-bar button {
+            padding: 8px 14px;
+            background: #238636;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            transition: 0.2s;
+        }
+        .top-bar button:hover { background: #2ea043; }
+        .top-bar button:disabled { background: #30363d; cursor: not-allowed; opacity: 0.6; }
+        .top-bar .danger { background: #da3633; }
+        .top-bar .danger:hover { background: #f85149; }
+
+        /* Main Split View */
+        .main-content {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1px;
+            background: #30363d;
+            overflow: hidden;
+        }
+
+        .panel {
+            background: #0d1117;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .panel-header {
+            padding: 12px 15px;
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+            font-weight: 600;
+            color: #58a6ff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .panel-header button {
+            padding: 5px 10px;
+            background: #30363d;
+            color: #c9d1d9;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .panel-header button:hover { background: #484f58; }
+
+        .file-tree {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+        .file-item, .folder-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            border-radius: 6px;
+            margin-bottom: 2px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .file-item:hover, .folder-item:hover { background: #21262d; }
+        .file-item.active { background: #1f6feb; color: white; }
+        .folder-item { font-weight: 600; color: #8b949e; }
+        .folder-content { margin-left: 18px; }
+
+        .item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .item-actions { display: flex; gap: 5px; }
+        .item-actions button {
+            padding: 3px 8px;
+            background: #238636;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+        .item-actions button.pull { background: #1f6feb; }
+        .item-actions button.push { background: #8957e5; }
+        .item-actions button.delete { background: #da3633; }
+        .item-actions button:hover { opacity: 0.8; }
+
+        /* Editor Panel */
+        .editor-panel {
+            background: #161b22;
+            border-top: 1px solid #30363d;
+            display: flex;
+            flex-direction: column;
+        }
+        .editor-header {
+            padding: 10px 15px;
+            background: #0d1117;
+            border-bottom: 1px solid #30363d;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+        }
+        .editor-header span { color: #58a6ff; font-weight: 600; }
+        .editor-header button {
+            padding: 6px 12px;
+            background: #238636;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .editor-header button:hover { background: #2ea043; }
+        .editor-header button:disabled { background: #30363d; cursor: not-allowed; }
+
+        #editor {
+            flex: 1;
+            padding: 15px;
+            background: #0d1117;
+            border: none;
+            color: #c9d1d9;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            resize: none;
+            outline: none;
+        }
+
+        /* Status Toast */
+        .status {
+            position: fixed;
+            bottom: 15px;
+            right: 15px;
+            padding: 12px 18px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 13px;
+            display: none;
+            max-width: 350px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            z-index: 100;
+        }
+        .status.success { background: #238636; color: white; display: block; }
+        .status.error { background: #da3633; color: white; display: block; }
+        .status.info { background: #1f6feb; color: white; display: block; }
+
+        .empty-state {
+            padding: 40px;
+            text-align: center;
+            color: #6e7681;
+            font-size: 13px;
+        }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #484f58; }
+    </style>
+</head>
+<body>
+
+    <!-- Connection Bar -->
+    <div class="top-bar">
+        <input type="password" id="pat-token" placeholder="GitHub PAT (ghp_...)" style="width: 180px;">
+        <input type="text" id="repo-owner" placeholder="Owner" style="width: 120px;">
+        <input type="text" id="repo-name" placeholder="Repository" style="width: 140px;">
+        <input type="text" id="branch" placeholder="Branch" value="main" style="width: 80px;">
+        <button id="connect-btn">Connect</button>
+        <button id="pull-all-btn" disabled>⬇️ Pull All to VFS</button>
+    </div>
+
+    <!-- Split Panels -->
+    <div class="main-content">
+        <!-- GitHub Panel (Left) -->
+        <div class="panel">
+            <div class="panel-header">
+                ☁️ GitHub Repository
+                <button onclick="loadGitHubTree()">🔄 Refresh</button>
+            </div>
+            <div class="file-tree" id="github-tree">
+                <div class="empty-state">Connect to a repository to browse files</div>
+            </div>
+        </div>
+
+        <!-- Local VFS Panel (Right) -->
+        <div class="panel">
+            <div class="panel-header">
+                💾 Local OS Files (VFS)
+                <button onclick="loadVFSTree()">🔄 Refresh</button>
+            </div>
+            <div class="file-tree" id="vfs-tree">
+                <div class="empty-state">Loading local files...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Editor (Bottom) -->
+    <div class="editor-panel" style="height: 250px;">
+        <div class="editor-header">
+            <span id="editor-title">No file selected</span>
+            <div style="display: flex; gap: 8px;">
+                <button id="save-local-btn" disabled onclick="saveToVFS()">💾 Save to VFS</button>
+                <button id="save-github-btn" disabled onclick="saveToGitHub()">☁️ Push to GitHub</button>
+            </div>
+        </div>
+        <textarea id="editor" placeholder="Select a file from either panel to edit..."></textarea>
+    </div>
+
+    <div id="status" class="status"></div>
+
+    <script>
+        // ========== OS INTEGRATION ==========
+        const OS = window.parent;
+        const VFS = OS.VFS;
+        const notify = (title, msg) => OS.showNotification ? OS.showNotification(title, msg) : console.log(title, msg);
+        
+        // ========== STATE ==========
+        let token = localStorage.getItem('github_pat') || '';
+        let owner = '', repo = '', branch = 'main';
+        let githubFiles = {};
+        let githubSHAs = {};
+        let currentFile = null;
+        let currentSource = null; // 'github' or 'vfs'
+        let currentFileData = null;
+
+        // ========== ELEMENTS ==========
+        const $ = id => document.getElementById(id);
+        const patInput = $('pat-token');
+        const ownerInput = $('repo-owner');
+        const repoInput = $('repo-name');
+        const branchInput = $('branch');
+        const connectBtn = $('connect-btn');
+        const pullAllBtn = $('pull-all-btn');
+        const githubTree = $('github-tree');
+        const vfsTree = $('vfs-tree');
+        const editor = $('editor');
+        const editorTitle = $('editor-title');
+        const saveLocalBtn = $('save-local-btn');
+        const saveGitHubBtn = $('save-github-btn');
+        const statusEl = $('status');
+
+        // Load saved token
+        if (token) patInput.value = token;
+
+        // ========== STATUS HELPER ==========
+        function showStatus(msg, type = 'info') {
+            statusEl.textContent = msg;
+            statusEl.className = `status ${type}`;
+            setTimeout(() => statusEl.className = 'status', 3500);
+        }
+
+        // ========== GITHUB API ==========
+        async function ghFetch(endpoint, options = {}) {
+            const res = await fetch(`https://api.github.com${endpoint}`, {
+                headers: {
+                    'Authorization': `token ${token}`,
+                    'Accept': 'application/vnd.github.v3+json',
+                    ...options.headers
+                },
+                ...options
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.message || res.statusText);
+            }
+            return res.json();
+        }
+
+        // ========== CONNECT TO REPO ==========
+        connectBtn.onclick = async () => {
+            token = patInput.value.trim();
+            owner = ownerInput.value.trim();
+            repo = repoInput.value.trim();
+            branch = branchInput.value.trim() || 'main';
+
+            if (!token || !owner || !repo) {
+                showStatus('Please fill in all fields', 'error');
+                return;
+            }
+
+            localStorage.setItem('github_pat', token);
+            showStatus('Connecting...', 'info');
+
+            try {
+                await loadGitHubTree();
+                pullAllBtn.disabled = false;
+                showStatus('Connected successfully!', 'success');
+                notify('GitHub Editor', `Connected to ${owner}/${repo}`);
+            } catch (err) {
+                showStatus(`Connection failed: ${err.message}`, 'error');
+            }
+        };
+
+        // ========== LOAD GITHUB TREE ==========
+        async function loadGitHubTree() {
+            const data = await ghFetch(`/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`);
+            githubFiles = {};
+            githubSHAs = {};
+
+            data.tree.filter(t => t.type === 'blob').forEach(item => {
+                githubFiles[item.path] = item;
+                githubSHAs[item.path] = item.sha;
+            });
+
+            renderGitHubTree();
+        }
+
+        function renderGitHubTree() {
+            if (Object.keys(githubFiles).length === 0) {
+                githubTree.innerHTML = '<div class="empty-state">No files found</div>';
+                return;
+            }
+
+            const tree = buildTreeStructure(Object.keys(githubFiles));
+            githubTree.innerHTML = '';
+            renderTreeLevel(tree, githubTree, 'github');
+        }
+
+        // ========== LOAD VFS TREE ==========
+        async function loadVFSTree() {
+            const files = await VFS.getFiles();
+            vfsTree.innerHTML = '';
+
+            if (!files || files.length === 0) {
+                vfsTree.innerHTML = '<div class="empty-state">No local files. Import from GitHub!</div>';
+                return;
+            }
+
+            const paths = files.map(f => f.name);
+            const tree = buildTreeStructure(paths);
+            renderTreeLevel(tree, vfsTree, 'vfs', files);
+        }
+
+        // ========== TREE STRUCTURE HELPERS ==========
+        function buildTreeStructure(paths) {
+            const tree = {};
+            paths.forEach(path => {
+                const parts = path.split('/');
+                let current = tree;
+                parts.forEach((part, i) => {
+                    if (!current[part]) {
+                        current[part] = i === parts.length - 1 ? { __file: path } : {};
+                    }
+                    current = current[part];
+                });
+            });
+            return tree;
+        }
+
+        function renderTreeLevel(level, container, source, vfsFiles = null) {
+            Object.keys(level).sort((a, b) => {
+                const aIsFile = level[a].__file;
+                const bIsFile = level[b].__file;
+                if (aIsFile && !bIsFile) return 1;
+                if (!aIsFile && bIsFile) return -1;
+                return a.localeCompare(b);
+            }).forEach(key => {
+                if (key === '__file') return;
+
+                const item = level[key];
+                const isFile = item.__file;
+
+                if (isFile) {
+                    const div = document.createElement('div');
+                    div.className = 'file-item';
+                    div.innerHTML = `
+                        <span class="item-name">📄 ${key}</span>
+                        <span class="item-actions">
+                            ${source === 'github' 
+                                ? `<button class="pull" data-path="${item.__file}" data-action="pull">⬇️</button>`
+                                : `<button class="push" data-path="${item.__file}" data-action="push">⬆️</button>
+                                   <button class="delete" data-path="${item.__file}" data-action="delete">🗑️</button>`
+                            }
+                        </span>
+                    `;
+                    div.querySelector('.item-name').onclick = () => loadFileToEditor(item.__file, source, vfsFiles);
+                    
+                    // Action buttons
+                    div.querySelectorAll('button').forEach(btn => {
+                        btn.onclick = (e) => {
+                            e.stopPropagation();
+                            const path = btn.dataset.path;
+                            const action = btn.dataset.action;
+                            if (action === 'pull') pullFileToVFS(path);
+                            if (action === 'push') pushFileToGitHub(path, vfsFiles);
+                            if (action === 'delete') deleteVFSFile(path);
+                        };
+                    });
+
+                    container.appendChild(div);
+                } else {
+                    const folderDiv = document.createElement('div');
+                    folderDiv.className = 'folder-item';
+                    folderDiv.innerHTML = `<span class="item-name">📁 ${key}</span>`;
+
+                    const contentDiv = document.createElement('div');
+                    contentDiv.className = 'folder-content';
+                    contentDiv.style.display = 'none';
+
+                    folderDiv.onclick = () => {
+                        const hidden = contentDiv.style.display === 'none';
+                        contentDiv.style.display = hidden ? 'block' : 'none';
+                        folderDiv.querySelector('.item-name').innerHTML = `${hidden ? '📂' : '📁'} ${key}`;
+                    };
+
+                
