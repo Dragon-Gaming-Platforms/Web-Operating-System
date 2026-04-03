@@ -543,47 +543,54 @@
         }
 
         // ===== GITHUB OPERATIONS (WITH SAFE ENCODING) =====
-        async function pullFromGitHub(repoPath) {
+async function pullFromGitHub(repoPath) {
+    const owner = 'Dragon-Gaming-Platforms';
+    const repo = 'Web-Operating-System';
+
+    print(`<span class="info">Fetching ${repoPath} from GitHub...</span>`);
+
+    try {
+        // Try without auth first (works for public repos)
+        let headers = { 'Accept': 'application/vnd.github.v3+json' };
+        
+        let res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${repoPath}`, { headers });
+
+        // If unauthorized and we don't have a token, ask for it
+        if (!res.ok && res.status === 404) {
             if (!sessionToken) {
-                sessionToken = await OS.osPrompt("GitHub PAT", "Enter your Personal Access Token:");
+                sessionToken = await OS.osPrompt("GitHub PAT", "This repo may be private. Enter your Personal Access Token:");
+                if (!sessionToken) {
+                    print(`<span class="warning">Pull aborted.</span>`);
+                    return;
+                }
             }
-            if (!sessionToken) {
-                print(`<span class="warning">Pull aborted.</span>`);
-                return;
-            }
-
-            const owner = 'Dragon-Gaming-Platforms';
-            const repo = 'Web-Operating-System';
-
-            print(`<span class="info">Fetching ${repoPath} from GitHub...</span>`);
-
-            try {
-                const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${repoPath}`, {
-                    headers: { 'Authorization': `Bearer ${sessionToken}` }
-                });
-
-                if (!res.ok) throw new Error('File not found in repository.');
-
-                const data = await res.json();
-                if (data.type !== 'file') throw new Error('Target is not a file.');
-
-                // ✅ SAFE DECODING
-                const content = safeBase64Decode(data.content);
-
-                const localName = repoPath.split('/').pop();
-                const path = currentPath === '' ? localName : `${currentPath}/${localName}`;
-
-                const ext = localName.split('.').pop().toLowerCase();
-                const mimeTypes = { html: 'text/html', js: 'text/javascript', css: 'text/css', json: 'application/json' };
-                const mime = mimeTypes[ext] || 'text/plain';
-
-                await VFS.saveFile(path, mime, content);
-                print(`<span class="success">✓ ${localName} pulled from GitHub.</span>`);
-                OS.showNotification('File Imported', `${localName} saved to VFS`);
-            } catch (err) {
-                print(`<span class="error">Pull Error: ${err.message}</span>`);
-            }
+            
+            // Retry with auth
+            headers['Authorization'] = `Bearer ${sessionToken}`;
+            res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${repoPath}`, { headers });
         }
+
+        if (!res.ok) throw new Error('File not found in repository.');
+
+        const data = await res.json();
+        if (data.type !== 'file') throw new Error('Target is not a file.');
+
+        const content = safeBase64Decode(data.content);
+
+        const localName = repoPath.split('/').pop();
+        const path = currentPath === '' ? localName : `${currentPath}/${localName}`;
+
+        const ext = localName.split('.').pop().toLowerCase();
+        const mimeTypes = { html: 'text/html', js: 'text/javascript', css: 'text/css', json: 'application/json' };
+        const mime = mimeTypes[ext] || 'text/plain';
+
+        await VFS.saveFile(path, mime, content);
+        print(`<span class="success">✓ ${localName} pulled from GitHub.</span>`);
+        OS.showNotification('File Imported', `${localName} saved to VFS`);
+    } catch (err) {
+        print(`<span class="error">Pull Error: ${err.message}</span>`);
+    }
+}
 
         async function pushToGitHub(localFile, repoPath) {
             if (!sessionToken) {
