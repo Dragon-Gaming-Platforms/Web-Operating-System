@@ -189,7 +189,6 @@ async function initOS(userEmail) {
     document.body.addEventListener('click', (e) => {
         if(!e.target.closest('#start-menu') && !e.target.closest('#start-btn')) document.getElementById('start-menu').classList.add('hidden');
     });
-    window.addEventListener('vfs-updated', renderDesktop);
 }
 
 function updateClockDate() {
