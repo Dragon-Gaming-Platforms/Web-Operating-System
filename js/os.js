@@ -571,7 +571,7 @@ async function silentUpdateAppList() {
                             'github-editor': '🐙',
                             'ai-assistant': '🤖',
                             'messages': '💬',
-                            'html-editor': '📝',
+                            'html-editor': '</>',
                             'github-importer': '📥'
                         };
                         let customIcon = iconMap[baseName] || null;
@@ -705,7 +705,7 @@ function openFile(file) {
         const editorHTML = `
             <div style="display:flex; flex-direction:column; height:100%; background:#1e1e1e;">
                 <div style="padding:8px 15px; background:#2d2d2d; border-bottom:1px solid #444; font-size:12px; color:#aaa; display:flex; justify-content:space-between;">
-                    <span>Ã°ÂÂÂ Editing: ${file.name}</span>
+                    <span>📝 Editing: ${file.name}</span>
                     <span style="color:#60cdff">Auto-saves as you type</span>
                 </div>
                 <textarea spellcheck="false" style="flex:1; padding:15px; background:#1e1e1e; color:#d4d4d4; border:none; outline:none; font-family:'Consolas', monospace; font-size:13px; resize:none; white-space:pre; overflow:auto;" oninput="window.parent.VFS.saveFile('${file.name}', '${file.type}', this.value)">${safeContent}</textarea>
@@ -730,7 +730,7 @@ function openFile(file) {
     }
     // 5. AUDIO
     else if(['mp3', 'wav'].includes(ext)) {
-        openWindow(file.name.split('/').pop(), null, `<div style="background:#111;height:100%;display:flex;align-items:center;justify-content:center; flex-direction:column; gap:20px;"><h2>Ã°ÂÂÂµ ${file.name.split('/').pop()}</h2><audio src="${file.content}" controls autoplay style="width:80%;outline:none;"></audio></div>`);
+        openWindow(file.name.split('/').pop(), null, `<div style="background:#111;height:100%;display:flex;align-items:center;justify-content:center; flex-direction:column; gap:20px;"><h2>📝 ${file.name.split('/').pop()}</h2><audio src="${file.content}" controls autoplay style="width:80%;outline:none;"></audio></div>`);
     }
     // 6. UNKNOWN
     else {
