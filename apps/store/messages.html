@@ -154,8 +154,9 @@
     <div class="room" onclick="newPublicRoom()">➕ Public Room</div>
     <div class="room" onclick="newPrivateRoom()">🔒 Private Room</div>
     <div class="room" onclick="joinRoom()">🔗 Join via Invite</div>
-    <div class="room" onclick="showInvites()">🔑 Active Invites</div>
+    <div class="room" id="showInvitesBtn" onclick="showInvites()" style="display:none">🔑 Active Invites</div>
     <div class="room" onclick="toggleTheme()">🌓 Theme</div>
+    <div class="room" id="banBtn" onclick="showBanMenu()" style="display:none">🚫 Manage Bans</div>
     <div id="roomList"></div>
     <div class="room" id="exportBtn" onclick="exportData()" style="display:none">📦 Export</div>
     <div class="room" id="importBtn" onclick="importData()" style="display:none">📥 Import</div>
@@ -226,89 +227,149 @@
           withSuccessHandler(callback) {
             return {
               withFailureHandler(errorCallback) {
+                this.errorCallback = errorCallback;
                 return this;
               },
-              getData: async (room) => {
-                const data = await jsonpRequest(BACKEND_URL, {
-                  action: 'getData',
-                  email: EMAIL,
-                  password: PASSWORD,
-                  room: room
-                });
-                if (data.error) {
-                  OS.showNotification('Messages Error', data.error);
-                  return;
+              
+              async _call(action, params) {
+                try {
+                  const payload = {
+                    action: action,
+                    email: EMAIL,
+                    password: PASSWORD,
+                    ...params
+                  };
+                  
+                  const data = await jsonpRequest(BACKEND_URL, payload);
+                  
+                  if (data.error) {
+                    if (this.errorCallback) {
+                      this.errorCallback(data.error);
+                    } else {
+                      OS.showNotification('Messages Error', data.error);
+                    }
+                    return;
+                  }
+                  
+                  callback(data);
+                } catch(err) {
+                  if (this.errorCallback) {
+                    this.errorCallback(err.message);
+                  } else {
+                    OS.showNotification('Network Error', err.message);
+                  }
                 }
-                callback(data);
               },
-              createRoom: async (name) => {
-                const data = await jsonpRequest(BACKEND_URL, {
-                  action: 'createRoom',
-                  email: EMAIL,
-                  password: PASSWORD,
-                  roomName: name
-                });
-                callback(data);
+
+              // ===== ROOM ACTIONS =====
+              getData: function(room) {
+                return this._call('getData', { room: room });
               },
-              deleteRoom: async (name) => {
-                const data = await jsonpRequest(BACKEND_URL, {
-                  action: 'deleteRoom',
-                  email: EMAIL,
-                  password: PASSWORD,
-                  roomName: name
-                });
-                callback(data);
+              
+              createRoom: function(name) {
+                return this._call('createRoom', { roomName: name });
               },
-              sendMessage: async (room, text, replyTo) => {
-                const data = await jsonpRequest(BACKEND_URL, {
-                  action: 'send',
-                  email: EMAIL,
-                  password: PASSWORD,
-                  room: room,
-                  text: text
-                });
-                callback(data);
+              
+              deleteRoom: function(name) {
+                return this._call('deleteRoom', { roomName: name });
               },
-              deleteMessage: async (room, id) => {
-                const data = await jsonpRequest(BACKEND_URL, {
-                  action: 'deleteMessage',
-                  email: EMAIL,
-                  password: PASSWORD,
-                  room: room,
-                  msgId: id
-                });
-                callback(data);
+              
+              isRoomPrivate: async function(room) {
+                const res = await this._call('isRoomPrivate', { room: room });
+                // This won't work because callback is from outer scope, so we handle it differently
+                return res;
               },
-              // Stub functions for features not yet in backend
-              isRoomPrivate: async (room) => { callback(false); },
-              getRoomMembers: async (room) => { callback([]); },
-              addUserToRoom: async (room, email) => { callback({}); },
-              removeUserFromRoom: async (room, email) => { callback({}); },
-              makeRoomPrivate: async (room) => { callback({}); },
-              makeRoomPublic: async (room) => { callback({}); },
-              createInvite: async (room) => { callback({ code: 'N/A', expires: 0 }); },
-              useInvite: async (code) => { callback(null); },
-              listInvites: async () => { callback([]); },
-              editMessage: async (room, id, text) => { callback({}); },
-              pinMessage: async (room, id) => { callback({}); },
-              react: async (room, id, emoji) => { callback({}); },
-              setTyping: async (room, state) => { callback({}); },
-              sendFile: async (room, name, data) => { callback({}); },
-              exportSystem: async () => { callback('{}'); },
-              importSystem: async (json) => { callback({}); }
+              
+              makeRoomPrivate: function(room) {
+                return this._call('makeRoomPrivate', { room: room });
+              },
+              
+              makeRoomPublic: function(room) {
+                return this._call('makeRoomPublic', { room: room });
+              },
+
+              // ===== MEMBER ACTIONS =====
+              getRoomMembers: async function(room) {
+                const res = await this._call('getRoomMembers', { room: room });
+                return res;
+              },
+              
+              addUserToRoom: function(room, targetEmail) {
+                return this._call('addUserToRoom', { room: room, targetEmail: targetEmail });
+              },
+              
+              removeUserFromRoom: function(room, targetEmail) {
+                return this._call('removeUserFromRoom', { room: room, targetEmail: targetEmail });
+              },
+
+              // ===== INVITE ACTIONS =====
+              createInvite: function(room) {
+                return this._call('createInvite', { room: room });
+              },
+              
+              useInvite: async function(code) {
+                const res = await this._call('useInvite', { code: code });
+                return res;
+              },
+              
+              listInvites: async function() {
+                const res = await this._call('listInvites', {});
+                return res;
+              },
+
+              // ===== MESSAGE ACTIONS =====
+              sendMessage: function(room, text, replyTo) {
+                return this._call('send', { room: room, text: text, replyTo: replyTo });
+              },
+              
+              deleteMessage: function(room, msgId) {
+                return this._call('deleteMessage', { room: room, msgId: msgId });
+              },
+              
+              editMessage: function(room, msgId, newText) {
+                return this._call('editMessage', { room: room, msgId: msgId, newText: newText });
+              },
+              
+              pinMessage: function(room, msgId) {
+                return this._call('pinMessage', { room: room, msgId: msgId });
+              },
+              
+              react: function(room, msgId, emoji) {
+                return this._call('react', { room: room, msgId: msgId, emoji: emoji });
+              },
+              
+              sendFile: function(room, fileName, fileData) {
+                return this._call('sendFile', { room: room, fileName: fileName, fileData: fileData });
+              },
+              
+              setTyping: function(room, state) {
+                return this._call('setTyping', { room: room, state: state });
+              },
+
+              // ===== ADMIN ACTIONS =====
+              exportSystem: async function() {
+                const res = await this._call('exportSystem', {});
+                return res;
+              },
+              
+              importSystem: function(jsonData) {
+                return this._call('importSystem', { jsonData: jsonData });
+              }
             };
           }
         }
       }
     };
 
-    // ========== ORIGINAL CHAT CODE (UNCHANGED) ==========
+    // ========== ORIGINAL CHAT CODE ==========
     const msg = document.getElementById("msg");
     const search = document.getElementById("search");
     const chat = document.getElementById("chat");
     const file = document.getElementById("file");
     const exportBtn = document.getElementById("exportBtn");
     const importBtn = document.getElementById("importBtn");
+    const banBtn = document.getElementById("banBtn");
+    const showInvitesBtn = document.getElementById("showInvitesBtn");
     
     let lastSeenMessage = 0;
     let room = localStorage.getItem("chat_room") || "general";
@@ -377,6 +438,8 @@
         if (data.admin) {
           exportBtn.style.display = "block";
           importBtn.style.display = "block";
+          banBtn.style.display = "block";
+          showInvitesBtn.style.display = "block";
         }
 
         renderRooms();
@@ -384,9 +447,10 @@
         renderMembers();
         render();
 
-        google.script.run.withSuccessHandler(isPrivate => {
-          document.getElementById("privateControls").style.display = isPrivate ? "flex" : "none";
-        }).isRoomPrivate(room);
+        // Check if room is private
+        google.script.run.isRoomPrivate(room).then(res => {
+          document.getElementById("privateControls").style.display = res.isPrivate ? "flex" : "none";
+        });
 
       }).getData(room);
     }
@@ -421,10 +485,12 @@
           notify(m);
         }
 
+        const isPinned = m.pinned ? '<span style="color:#facc15">📌</span> ' : '';
+
         chat.innerHTML += `
         <div class="msg">
           <div class="email">
-            ${m.user} · <span class="ts">${timeAgo(time)}</span>
+            ${isPinned}${m.user || m.email} · <span class="ts">${timeAgo(time)}</span>
             ${data.admin ? `
               <span class="adminBtn" onclick="editMsg('${m.id}','${(m.text||"").replace(/'/g, "\\'")}')">✏</span>
               <span class="adminBtn" onclick="delMsg('${m.id}')">🗑</span>
@@ -434,6 +500,7 @@
           <div>
             ${m.text ? linkify(m.text) : ""}
             ${m.edited ? `<span style="font-size:10px;color:#94a3b8"> (edited)</span>` : ""}
+            ${m.file ? `<a href="${m.data}" download="${m.file}">📎 ${m.file}</a>` : ""}
           </div>
           <div style="margin-top:4px">
             <span onclick="react('${m.id}','👍')" style="cursor:pointer">👍 ${(m.reactions?.["👍"] || 0)}</span>
@@ -470,8 +537,9 @@
         .filter(r => r && r !== "undefined")
         .map(r => {
           const lock = data.privateRooms && data.privateRooms[r] ? "🔒 " : "";
+          const isActive = r === room ? 'style="background:#374151;font-weight:bold"' : '';
           return `
-            <div class="room" onclick="switchRoom('${r}')">
+            <div class="room" ${isActive} onclick="switchRoom('${r}')">
               ${lock}${r}
               ${data.admin ? `<span class="adminBtn" onclick="event.stopPropagation();delRoom('${r}')">✖</span>` : ""}
             </div>
@@ -486,18 +554,19 @@
         el.innerHTML = "";
         return;
       }
-      el.innerHTML = data.online.map(u => `<div style="font-size:11px">${u}</div>`).join("");
+      el.innerHTML = data.online.map(u => `<div style="font-size:11px">${u.split('@')[0]}</div>`).join("");
     }
 
     function renderMembers() {
-      google.script.run.withSuccessHandler(members => {
+      google.script.run.getRoomMembers(room).then(res => {
+        const members = res.members || [];
         const el = document.getElementById("memberList");
         if (!members || !members.length) {
           el.innerHTML = "";
           return;
         }
-        el.innerHTML = members.map(m => `<div style="font-size:11px">${m}</div>`).join("");
-      }).getRoomMembers(room);
+        el.innerHTML = members.map(m => `<div style="font-size:11px">${m.split('@')[0]}</div>`).join("");
+      });
     }
 
     // ---------- ROOM & USER ACTIONS ----------
@@ -507,29 +576,26 @@
       load();
     }
 
-    function newPublicRoom() {
-      OS.osPrompt("New Public Room", "Enter room name:").then(r => {
-        if (!r) return;
-        google.script.run.withSuccessHandler(load).createRoom(r);
-      });
+    async function newPublicRoom() {
+      const r = await OS.osPrompt("New Public Room", "Enter room name:");
+      if (!r) return;
+      google.script.run.withSuccessHandler(load).createRoom(r);
     }
 
-    function newPrivateRoom() {
-      OS.osPrompt("New Private Room", "Enter room name:").then(r => {
-        if (!r) return;
-        google.script.run.withSuccessHandler(() => {
-          google.script.run.makeRoomPrivate(r);
-          load();
-        }).createRoom(r);
-      });
+    async function newPrivateRoom() {
+      const r = await OS.osPrompt("New Private Room", "Enter room name:");
+      if (!r) return;
+      google.script.run.withSuccessHandler(() => {
+        google.script.run.makeRoomPrivate(r);
+        setTimeout(load, 500);
+      }).createRoom(r);
     }
 
-    function delRoom(r) {
-      OS.osConfirm("Delete Room", `Delete room "${r}"?`).then(confirmed => {
-        if (confirmed) {
-          google.script.run.withSuccessHandler(load).deleteRoom(r);
-        }
-      });
+    async function delRoom(r) {
+      const confirmed = await OS.osConfirm("Delete Room", `Delete room "${r}"?`);
+      if (confirmed) {
+        google.script.run.withSuccessHandler(load).deleteRoom(r);
+      }
     }
 
     function addUser() {
@@ -542,53 +608,88 @@
       }).addUserToRoom(room, email);
     }
 
-    function removeUser() {
-      OS.osPrompt("Remove User", "Enter email to remove:").then(email => {
-        if (!email) return;
-        google.script.run.withSuccessHandler(() => {
-          OS.showNotification('Messages', 'User removed');
-          renderMembers();
-        }).removeUserFromRoom(room, email);
-      });
+    async function removeUser() {
+      const email = await OS.osPrompt("Remove User", "Enter email to remove:");
+      if (!email) return;
+      google.script.run.withSuccessHandler(() => {
+        OS.showNotification('Messages', 'User removed');
+        renderMembers();
+      }).removeUserFromRoom(room, email);
     }
     
-    function inviteRoom(room) {
-      google.script.run.withSuccessHandler(res => {
+    function inviteRoom(r) {
+      google.script.run.createInvite(r).then(res => {
         if (!res || !res.code) {
           OS.showNotification('Messages', 'Failed to create invite');
           return;
         }
-        OS.osPrompt("Invite Code", `Expires in ${res.expires} minutes:`, res.code);
-      }).createInvite(room);
+        OS.osPrompt("Invite Code", `Share this code (expires in ${res.expires} minutes):`, res.code);
+      });
     }
 
-    function joinRoom() {
-      OS.osPrompt("Join Room", "Enter invite code:").then(code => {
-        if (!code) return;
-        google.script.run.withSuccessHandler(joinedRoom => {
-          if (joinedRoom) {
-            OS.showNotification('Messages', `Joined ${joinedRoom}`);
-            switchRoom(joinedRoom);
-          } else {
-            OS.showNotification('Messages', 'Invalid or expired invite code');
-          }
-        }).useInvite(code);
+    async function joinRoom() {
+      const code = await OS.osPrompt("Join Room", "Enter invite code:");
+      if (!code) return;
+      google.script.run.useInvite(code).then(res => {
+        const joinedRoom = res.room;
+        if (joinedRoom) {
+          OS.showNotification('Messages', `Joined ${joinedRoom}`);
+          switchRoom(joinedRoom);
+        } else {
+          OS.showNotification('Messages', 'Invalid or expired invite code');
+        }
       });
     }
     
     function showInvites() {
-      google.script.run.withSuccessHandler(invites => {
+      google.script.run.listInvites().then(res => {
+        const invites = res.invites || [];
         if (!invites.length) {
           OS.showNotification('Messages', 'No active invites');
           return;
         }
-        let text = "Active Invites:\n\n";
+        let text = "";
         invites.forEach(i => {
           const mins = Math.floor((i.expires - Date.now()) / 60000);
-          text += `${i.room} — ${i.code} (${mins}m left)\n`;
+          text += `${i.room}: ${i.code} (${mins}m left)\n`;
         });
         OS.osAlert("Active Invites", text);
-      }).listInvites();
+      });
+    }
+
+    // ---------- BAN SYSTEM ----------
+    async function showBanMenu() {
+      const action = await OS.osPrompt('Ban System', 'Enter "ban [email]" or "unban [email]" or "list"');
+      if (!action) return;
+      
+      const parts = action.split(' ');
+      const cmd = parts[0];
+      const targetEmail = parts[1];
+      
+      if (cmd === 'ban' && targetEmail) {
+        const res = await jsonpRequest(BACKEND_URL, {
+          action: 'banUser',
+          email: EMAIL,
+          password: PASSWORD,
+          targetEmail: targetEmail
+        });
+        OS.showNotification('Messages', res.error || `Banned ${targetEmail}`);
+      } else if (cmd === 'unban' && targetEmail) {
+        const res = await jsonpRequest(BACKEND_URL, {
+          action: 'unbanUser',
+          email: EMAIL,
+          password: PASSWORD,
+          targetEmail: targetEmail
+        });
+        OS.showNotification('Messages', res.error || `Unbanned ${targetEmail}`);
+      } else if (cmd === 'list') {
+        const res = await jsonpRequest(BACKEND_URL, {
+          action: 'getBannedUsers',
+          email: EMAIL,
+          password: PASSWORD
+        });
+        OS.osAlert('Banned Users', res.banned && res.banned.length ? res.banned.join('\n') : 'No banned users');
+      }
     }
 
     // ---------- MESSAGE ACTIONS ----------
@@ -617,22 +718,21 @@
     function reply(id) {
       replyTo = id;
       msg.placeholder = "Replying...";
+      msg.focus();
     }
 
-    function editMsg(id, old) {
-      OS.osPrompt("Edit Message", "Edit message:", old).then(text => {
-        if (!text) return;
-        google.script.run.withSuccessHandler(load).editMessage(room, id, text);
-      });
+    async function editMsg(id, old) {
+      const text = await OS.osPrompt("Edit Message", "Edit message:", old);
+      if (!text) return;
+      google.script.run.withSuccessHandler(load).editMessage(room, id, text);
     }
 
-    function delMsg(id) {
-      OS.osConfirm("Delete Message", "Delete this message?").then(confirmed => {
-        if (confirmed) {
-          google.script.run.deleteMessage(room, id);
-          setTimeout(load, 300);
-        }
-      });
+    async function delMsg(id) {
+      const confirmed = await OS.osConfirm("Delete Message", "Delete this message?");
+      if (confirmed) {
+        google.script.run.deleteMessage(room, id);
+        setTimeout(load, 300);
+      }
     }
 
     function typing() {
@@ -656,14 +756,15 @@
 
     // ---------- EXPORT / IMPORT ----------
     function exportData() {
-      google.script.run.withSuccessHandler(json => {
+      google.script.run.exportSystem().then(res => {
+        const json = res.data;
         const blob = new Blob([json], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
         a.download = "chat-backup.json";
         a.click();
-      }).exportSystem();
+      });
     }
 
     function importData() {
