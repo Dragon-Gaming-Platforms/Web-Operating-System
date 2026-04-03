@@ -567,7 +567,7 @@ async function silentUpdateAppList() {
                             'browser': '🌐',
                             'updates': '📢',
                             'task-manager': '📊',
-                            'github-editor': '🐙',
+                            'github-editor': '🧑‍💻',
                             'ai-assistant': '🤖',
                             'messages': '💬',
                             'html-editor': '</>',
