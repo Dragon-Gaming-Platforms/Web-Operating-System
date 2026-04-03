@@ -451,24 +451,28 @@ class GitHubEditor {
         }
     }
 
-    async fetchRepositoryTree() {
-        const url = `https://api.github.com/repos/${this.owner}/${this.repo}/git/trees/${this.branch}?recursive=1`;
-        
-        const response = await fetch(url, {
-            headers: {
-                'Authorization': `token ${this.token}`,
-                'Accept': 'application/vnd.github.v3+json'
-            }
-        });
+async fetchRepositoryTree() {
+    const url = `https://api.github.com/repos/${this.owner}/${this.repo}/git/trees/${this.branch}?recursive=1`;
+    
+    // Try without auth first
+    let headers = { 'Accept': 'application/vnd.github.v3+json' };
+    
+    let response = await fetch(url, { headers });
 
-        if (!response.ok) {
-            throw new Error(`Failed to fetch repository: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        this.files = this.organizeFiles(data.tree);
-        this.renderFileTree();
+    // If unauthorized, try with token
+    if (!response.ok && this.token) {
+        headers['Authorization'] = `token ${this.token}`;
+        response = await fetch(url, { headers });
     }
+
+    if (!response.ok) {
+        throw new Error(`Failed to fetch repository: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    this.files = this.organizeFiles(data.tree);
+    this.renderFileTree();
+}
 
     organizeFiles(tree) {
         const organized = {};
@@ -538,52 +542,54 @@ class GitHubEditor {
         });
     }
 
-    async loadFile(path, sha) {
-        try {
-            this.showStatus('Loading file...', 'info');
-            
-            const url = `https://api.github.com/repos/${this.owner}/${this.repo}/contents/${path}?ref=${this.branch}`;
-            
-            const response = await fetch(url, {
-                headers: {
-                    'Authorization': `token ${this.token}`,
-                    'Accept': 'application/vnd.github.v3+json'
-                }
-            });
+async loadFile(path, sha) {
+    try {
+        this.showStatus('Loading file...', 'info');
+        
+        const url = `https://api.github.com/repos/${this.owner}/${this.repo}/contents/${path}?ref=${this.branch}`;
+        
+        // Try without auth first (public repos)
+        let headers = { 'Accept': 'application/vnd.github.v3+json' };
+        
+        let response = await fetch(url, { headers });
 
-            if (!response.ok) {
-                throw new Error(`Failed to load file: ${response.statusText}`);
-            }
-
-            const data = await response.json();
-            // ✅ SAFE DECODING - fixes emoji corruption
-            const content = safeBase64Decode(data.content);
-            
-            this.currentFile = path;
-            this.fileContents[path] = content;
-            this.fileSHAs[path] = data.sha;
-            
-            this.elements.editor.value = content;
-            this.elements.currentFile.textContent = path;
-            this.elements.fileInfo.textContent = `Size: ${data.size} bytes | SHA: ${data.sha.substring(0, 7)}`;
-            
-            this.elements.saveFile.disabled = false;
-            this.elements.deleteFile.disabled = false;
-            this.elements.exportVfs.disabled = false;
-            
-            // Highlight active file
-            document.querySelectorAll('.file-item').forEach(item => {
-                item.classList.remove('active');
-                if (item.textContent.includes(path.split('/').pop())) {
-                    item.classList.add('active');
-                }
-            });
-            
-            this.showStatus('File loaded successfully', 'success');
-        } catch (error) {
-            this.showStatus(`Error loading file: ${error.message}`, 'error');
+        // If it fails and we have a token, retry with auth
+        if (!response.ok && this.token) {
+            headers['Authorization'] = `token ${this.token}`;
+            response = await fetch(url, { headers });
         }
+
+        if (!response.ok) {
+            throw new Error(`Failed to load file: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        const content = safeBase64Decode(data.content);
+        
+        this.currentFile = path;
+        this.fileContents[path] = content;
+        this.fileSHAs[path] = data.sha;
+        
+        this.elements.editor.value = content;
+        this.elements.currentFile.textContent = path;
+        this.elements.fileInfo.textContent = `Size: ${data.size} bytes | SHA: ${data.sha.substring(0, 7)}`;
+        
+        this.elements.saveFile.disabled = false;
+        this.elements.deleteFile.disabled = false;
+        this.elements.exportVfs.disabled = false;
+        
+        document.querySelectorAll('.file-item').forEach(item => {
+            item.classList.remove('active');
+            if (item.textContent.includes(path.split('/').pop())) {
+                item.classList.add('active');
+            }
+        });
+        
+        this.showStatus('File loaded successfully', 'success');
+    } catch (error) {
+        this.showStatus(`Error loading file: ${error.message}`, 'error');
     }
+}
 
     async createNewFile() {
         const fileName = await OS.osPrompt('New File', 'Enter file name (with path if needed):');
