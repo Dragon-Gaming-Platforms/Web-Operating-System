@@ -548,7 +548,9 @@ async function silentUpdateAppList() {
     } else { return; }
 
     try {
-        let newRegistry = []; let newEngines = [];
+        let newRegistry = []; 
+        let newEngines = [];
+        
         const fetchFolder = async (folder, isPreinstalled, defaultCategory) => {
             const res = await fetch(`https://api.github.com/repos/${user}/${repo}/contents/apps/${folder}`);
             if (res.ok) {
@@ -558,19 +560,40 @@ async function silentUpdateAppList() {
                         let baseName = file.name.replace('.html', '');
                         let title = baseName.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
                         
-                        let customIcon = null;
-                        if(baseName === 'file-explorer') customIcon = 'Ã°ÂÂÂ';
-                        if(baseName === 'settings') customIcon = 'Ã¢ÂÂÃ¯Â¸Â';
-                        if(baseName === 'terminal') customIcon = 'Ã¢ÂÂ¨Ã¯Â¸Â';
-                        if(baseName === 'browser') customIcon = 'Ã°ÂÂÂ';
-                        if(baseName === 'updates') customIcon = 'Ã°ÂÂÂ¢';
+                        // ===== FIXED ICON MAP =====
+                        const iconMap = {
+                            'file-explorer': '📂',
+                            'settings': '⚙️',
+                            'terminal': '⌨️',
+                            'browser': '🌐',
+                            'updates': '📢',
+                            'task-manager': '📊',
+                            'github-editor': '🐙',
+                            'ai-assistant': '🤖',
+                            'messages': '💬',
+                            'html-editor': '📝',
+                            'github-importer': '📥'
+                        };
+                        let customIcon = iconMap[baseName] || null;
+                        // ==========================
 
-                        if(folder === 'browsers') { newEngines.push({ id: baseName, name: title, path: file.path }); } 
-                        else { newRegistry.push({ id: baseName, name: title, path: file.path, category: defaultCategory, preinstalled: isPreinstalled, icon: customIcon }); }
+                        if(folder === 'browsers') { 
+                            newEngines.push({ id: baseName, name: title, path: file.path }); 
+                        } else { 
+                            newRegistry.push({ 
+                                id: baseName, 
+                                name: title, 
+                                path: file.path, 
+                                category: defaultCategory, 
+                                preinstalled: isPreinstalled, 
+                                icon: customIcon 
+                            }); 
+                        }
                     }
                 }
             }
         };
+        
         await fetchFolder('preinstalled', true, 'System'); 
         await fetchFolder('store', false, 'App Store');
         await fetchFolder('browsers', true, 'System'); 
@@ -578,10 +601,15 @@ async function silentUpdateAppList() {
         if (newRegistry.length > 0) {
             localStorage.setItem('dynamicAppRegistry', JSON.stringify(newRegistry));
             localStorage.setItem('browserEngines', JSON.stringify(newEngines));
-            appRegistry = newRegistry; window.browserEngines = newEngines;
-            renderDesktop(); renderAppStore(); renderTaskbar();
+            appRegistry = newRegistry; 
+            window.browserEngines = newEngines;
+            renderDesktop(); 
+            renderAppStore(); 
+            renderTaskbar();
         }
-    } catch(e) { console.warn("Silent app scan failed."); }
+    } catch(e) { 
+        console.warn("Silent app scan failed:", e); 
+    }
 }
 
 async function checkForGitHubUpdates() {
