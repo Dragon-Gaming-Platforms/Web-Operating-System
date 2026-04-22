@@ -1,11 +1,244 @@
-<iframe
-  src="https://webvm.io/alpine.html"
-  width="1300"
-  height="768"
-  style="border:0;overflow:hidden;"
-  scrolling="auto"
-  frameborder="0"
-  name="Webvm"
-  referrerpolicy="strict-origin-when-cross-origin"
-  sandbox="allow-scripts allow-popups allow-top-navigation allow-same-origin allow-forms"
-></iframe>
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { background: #0c0c0c; color: #cccccc; font-family: 'Consolas', monospace; margin: 0; padding: 10px; height: 100vh; overflow-y: auto; box-sizing: border-box;}
+        #output { white-space: pre-wrap; word-wrap: break-word; }
+        .input-line { display: flex; }
+        .prompt { margin-right: 8px; color: #00ff00;}
+        input { flex: 1; background: transparent; border: none; color: white; font-family: 'Consolas', monospace; outline: none; font-size: 14px;}
+    </style>
+</head>
+<body>
+    <div id="output">Windows Web OS [Version 1.0.0]<br>(c) Web OS Corporation. All rights reserved.<br><br>Type 'help' for commands.<br><br></div>
+    <div class="input-line">
+        <span class="prompt" id="prompt-path">C:\Users\Admin></span>
+        <input type="text" id="cmd" autocomplete="off" autofocus>
+    </div>
+
+    <script>
+        const VFS = window.parent.VFS;
+        const out = document.getElementById('output');
+        const cmd = document.getElementById('cmd');
+        
+        let currentPath = ''; 
+        let sessionToken = ''; // Securly stores the PAT during this session
+
+        cmd.addEventListener('keypress', async (e) => {
+            if(e.key === 'Enter') {
+                const val = cmd.value.trim();
+                cmd.value = '';
+                print(`<span style="color:#00ff00">C:\\Users\\Admin${currentPath ? '\\' + currentPath.replace(/\//g,'\\') : ''}></span> ${val.replace(/</g, '&lt;')}`);
+                await runCommand(val);
+                document.getElementById('prompt-path').innerText = `C:\\Users\\Admin${currentPath ? '\\' + currentPath.replace(/\//g,'\\') : ''}>`;
+                window.scrollTo(0, document.body.scrollHeight);
+            }
+        });
+
+        // Always keep focus on the invisible input
+        document.body.addEventListener('click', () => cmd.focus());
+
+        function print(text) { out.innerHTML += text + '<br>'; }
+
+        // Safely decode GitHub's base64 so emojis/symbols don't break
+        function b64DecodeUnicode(str) {
+            return decodeURIComponent(atob(str).split('').map(function(c) {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+            }).join(''));
+        }
+
+        async function runCommand(command) {
+            if (!command) return;
+            
+            const args = command.split(' ');
+            const cmdName = args[0].toLowerCase();
+            
+            if(cmdName === 'help') {
+                print('ls       - List files');
+                print('mkdir    - Create a directory (mkdir folder)');
+                print('cd       - Change directory (cd folder OR cd ..)');
+                print('echo     - Print text or create file (echo hi > file.txt)');
+                print('cat      - Read a text file (cat file.txt)');
+                print('rm       - Delete a file or folder (rm file.txt)');
+                print('whoami   - Show current user');
+                print('date     - Show system date/time');
+                print('clear    - Clear terminal');
+                
+                // Show hidden commands to Admins only
+                if (window.parent.ADMINS && window.parent.ADMINS.includes(window.parent.currentUser)) {
+                    print('<br><span style="color:#f39c12">--- ADMIN COMMANDS ---</span>');
+                    print('<span style="color:#f39c12">sudo pull &lt;repo_path&gt;</span>           - Download GitHub file to VFS');
+                    print('<span style="color:#f39c12">sudo push &lt;local_file&gt; [repo_path]</span> - Upload VFS file to GitHub');
+                }
+            }
+            else if (cmdName === 'clear') { out.innerHTML = ''; }
+            else if (cmdName === 'ls') {
+                const files = await VFS.getFiles();
+                let count = 0;
+                files.forEach(f => {
+                    if (currentPath === '' && !f.name.includes('/')) { print(`  ${f.type === 'folder'?'[DIR] ':'[FILE]'} ${f.name}`); count++; }
+                    else if (currentPath !== '' && f.name.startsWith(currentPath + '/') && f.name.substring(currentPath.length + 1).indexOf('/') === -1) {
+                        print(`  ${f.type === 'folder'?'[DIR] ':'[FILE]'} ${f.name.split('/').pop()}`); count++;
+                    }
+                });
+                if(count===0) print('  (Empty Directory)');
+            }
+            else if (cmdName === 'mkdir' && args[1]) {
+                const path = currentPath === '' ? args[1] : `${currentPath}/${args[1]}`;
+                await VFS.saveFile(path, 'folder', '');
+                print(`Directory created.`);
+            }
+            else if (cmdName === 'cd') {
+                if(!args[1]) return;
+                if(args[1] === '..') {
+                    if(currentPath !== '') currentPath = currentPath.split('/').slice(0, -1).join('/');
+                } else {
+                    const target = currentPath === '' ? args[1] : `${currentPath}/${args[1]}`;
+                    const files = await VFS.getFiles();
+                    if(files.find(f => f.name === target && f.type === 'folder')) currentPath = target;
+                    else print('Directory not found.');
+                }
+            }
+            else if (cmdName === 'rm' && args[1]) {
+                const path = currentPath === '' ? args[1] : `${currentPath}/${args[1]}`;
+                await VFS.deleteFile(path);
+                print(`Deleted ${args[1]}`);
+            }
+            else if (cmdName === 'cat' && args[1]) {
+                const path = currentPath === '' ? args[1] : `${currentPath}/${args[1]}`;
+                const files = await VFS.getFiles();
+                const file = files.find(f => f.name === path && f.type !== 'folder');
+                if(file) print(file.content.replace(/</g, '&lt;').replace(/>/g, '&gt;'));
+                else print('File not found or is a directory.');
+            }
+            else if (cmdName === 'echo') {
+                const fullCmd = command.substring(5);
+                const parts = fullCmd.split('>');
+                if(parts.length > 1) {
+                    const text = parts[0].trim().replace(/^"|"$/g, '');
+                    const filename = parts[1].trim();
+                    const path = currentPath === '' ? filename : `${currentPath}/${filename}`;
+                    await VFS.saveFile(path, 'text/plain', text);
+                    print(`Saved to ${filename}`);
+                } else {
+                    print(fullCmd.replace(/</g, '&lt;').replace(/>/g, '&gt;'));
+                }
+            }
+            else if (cmdName === 'whoami') { print(window.parent.currentUser || 'Guest'); }
+            else if (cmdName === 'date') { print(new Date().toString()); }
+            
+            // ---------------------------------------------------------
+            // 🛑 HIDDEN ADMIN COMMANDS: PULL & PUSH FROM GITHUB
+            // ---------------------------------------------------------
+            else if (cmdName === 'sudo') {
+                const currentUser = window.parent.currentUser || '';
+                const admins = window.parent.ADMINS || [];
+                
+                if (!admins.includes(currentUser)) {
+                    return print('<span style="color:#ff4d4d">Permission denied. This incident will be reported.</span>');
+                }
+
+                const action = args[1]; 
+                const fileName = args[2]; 
+                
+                if (!action || !fileName) {
+                    return print('<span style="color:#ff4d4d">Usage: sudo pull &lt;filepath&gt; OR sudo push &lt;filepath&gt;</span>');
+                }
+
+                const owner = 'Dragon-Gaming-Platforms';
+                const repo = 'Web-Operating-System';
+                const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${fileName}`;
+
+                // --- SUDO PULL (Download from GitHub to Desktop) ---
+                if (action === 'pull') {
+                    print(`Fetching ${fileName} from GitHub...`);
+                    try {
+                        const pullRes = await fetch(apiUrl);
+                        if (!pullRes.ok) throw new Error('File not found in repository.');
+                        
+                        const pullData = await pullRes.json();
+                        if (pullData.type !== 'file') throw new Error('Target is not a file.');
+                        
+                        // Decode content
+                        const decodedContent = b64DecodeUnicode(pullData.content);
+                        
+                        // Extract just the filename to save on desktop
+                        const localName = fileName.split('/').pop();
+                        const path = currentPath === '' ? localName : `${currentPath}/${localName}`;
+                        
+                        // Guess extension
+                        const ext = localName.split('.').pop().toLowerCase();
+                        const mime = (ext === 'html') ? 'text/html' : (ext === 'js' ? 'text/javascript' : (ext === 'css' ? 'text/css' : 'text/plain'));
+                        
+                        await VFS.saveFile(path, mime, decodedContent);
+                        print(`<span style="color:#27ae60; font-weight:bold;">Success! ${localName} saved to local filesystem.</span>`);
+                    } catch (err) {
+                        print(`<span style="color:#ff4d4d">Pull Error: ${err.message}</span>`);
+                    }
+                }
+
+                // --- SUDO PUSH (Upload from Desktop to GitHub) ---
+                else if (action === 'push') {
+                    const targetRepoPath = args[3] || fileName;
+                    
+                    const files = await VFS.getFiles();
+                    const targetPath = currentPath === '' ? fileName : `${currentPath}/${fileName}`;
+                    const fileToPush = files.find(f => f.name === targetPath && f.type !== 'folder');
+
+                    if (!fileToPush) return print(`<span style="color:#ff4d4d">Error: '${targetPath}' not found locally.</span>`);
+
+                    if (!sessionToken) {
+                        sessionToken = await window.parent.osPrompt("Admin Auth", "Enter your GitHub Personal Access Token (PAT):");
+                    }
+                    if (!sessionToken) return print('<span style="color:#aaa">Push aborted.</span>');
+
+                    const commitMsg = await window.parent.osPrompt("Commit", "Enter commit message:") || `Update ${targetRepoPath} via Web OS`;
+                    print(`Preparing to push ${fileName} to GitHub...`);
+
+                    try {
+                        let fileSha = null;
+                        const checkRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${targetRepoPath}`, { 
+                            headers: { 'Authorization': `Bearer ${sessionToken}` } 
+                        });
+                        
+                        if (checkRes.ok) {
+                            const checkData = await checkRes.json();
+                            fileSha = checkData.sha;
+                        }
+
+                        // Encode properly
+                        const base64Content = btoa(unescape(encodeURIComponent(fileToPush.content))); 
+
+                        const bodyData = { message: commitMsg, content: base64Content };
+                        if (fileSha) bodyData.sha = fileSha;
+
+                        const pushRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${targetRepoPath}`, {
+                            method: 'PUT',
+                            headers: {
+                                'Authorization': `Bearer ${sessionToken}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(bodyData)
+                        });
+
+                        if (pushRes.ok) {
+                            print(`<span style="color:#27ae60; font-weight:bold;">Success! Commit pushed to GitHub repository.</span>`);
+                            setTimeout(() => window.parent.checkForGitHubUpdates(), 2000);
+                        } else {
+                            const errData = await pushRes.json();
+                            print(`<span style="color:#ff4d4d">GitHub API Error: ${errData.message}</span>`);
+                            if(pushRes.status === 401) sessionToken = ''; // Clear token if unauthorized
+                        }
+                    } catch (err) {
+                        print(`<span style="color:#ff4d4d">Network Error: ${err.message}</span>`);
+                    }
+                } else {
+                    print(`<span style="color:#ff4d4d">Unknown sudo command. Try 'sudo pull' or 'sudo push'.</span>`);
+                }
+            }
+            
+            else print(`'${cmdName}' is not recognized as an internal command.`);
+        }
+    </script>
+</body>
+</html>
