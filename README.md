@@ -8,3 +8,5 @@
 
 > [!CAUTION]
 > Please note that this project isn't really active anymore. you can find teh ongoing version at [Dragon-Gaming-Platforms/Web-OS](https://github.com/Dragon-Gaming-Platforms/Web-OS) with the demo [here](https://dragon-gaming-platforms.github.io/Web-OS/os/).
+
+Unfortunately, due to security restricions I cannot share the backend URL myself. it is hosted on [Google Apps Scripts](https://script.google.com)
