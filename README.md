@@ -1,4 +1,3 @@
-
 <h1 align="center">Fireburst OS</h1
 
 > [!CAUTION]
