@@ -1,4 +1,4 @@
-<h1 align="center">Fireburst OS</h1
+<h1 align="center">Fireburst OS</h1>
 
 <div align="center">
   <img src="assets/images/dragon-login.png" height="425" />
